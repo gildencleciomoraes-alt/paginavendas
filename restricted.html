@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Área restrita do aluno | MentoriaTCC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <div class="brand">MentoriaTCC</div>
+      <div class="nav-actions">
+        <a href="index.html#planos" class="btn ghost">Planos</a>
+        <a href="index.html#login" class="btn ghost">Trocar de conta</a>
+        <a href="index.html" class="btn primary">Voltar ao site</a>
+      </div>
+    </nav>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <p class="tag">Acesso restrito</p>
+        <h1>Seu painel exclusivo</h1>
+        <p class="lead">Esta página mostra somente informações liberadas para o seu usuário.</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="section-header">
+        <p class="tag">Dados do aluno</p>
+        <h2 id="restricted-heading">Carregando perfil...</h2>
+        <p class="description" id="restricted-description">Validando suas credenciais locais.</p>
+      </div>
+      <div class="cards-grid">
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Identificação</span>
+            <strong id="restricted-name">—</strong>
+          </div>
+          <ul>
+            <li><strong>E-mail:</strong> <span id="restricted-email">—</span></li>
+            <li><strong>Plano:</strong> <span id="restricted-plan">—</span></li>
+            <li><strong>Status:</strong> <span id="restricted-status" class="status status-warning">—</span></li>
+          </ul>
+        </article>
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Próxima atividade</span>
+            <strong id="restricted-session">—</strong>
+          </div>
+          <ul>
+            <li id="restricted-note">Esta área foi reservada somente para você.</li>
+          </ul>
+        </article>
+      </div>
+      <div class="hero-actions" style="justify-content:center; margin-top:32px;">
+        <a class="btn ghost" href="index.html#login">Sair e fazer login novamente</a>
+        <a class="btn primary" href="index.html">Voltar para a página inicial</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const profileKey = 'mentoria-user-profile';
+
+    function getStoredProfile() {
+      try {
+        const raw = localStorage.getItem(profileKey);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function renderRestrictedArea() {
+      const profile = getStoredProfile();
+      const heading = document.getElementById('restricted-heading');
+      const description = document.getElementById('restricted-description');
+
+      if (!profile) {
+        heading.textContent = 'Acesso não autorizado';
+        description.textContent = 'Faça login ou cadastro para acessar seu painel restrito.';
+        document.querySelectorAll('.card.dashboard').forEach(card => {
+          card.classList.add('hidden');
+        });
+        return;
+      }
+
+      heading.textContent = `Bem-vindo, ${profile.nome || profile.name || 'Aluno'}`;
+      description.textContent = 'Essas informações são exclusivas do seu usuário.';
+      document.getElementById('restricted-name').textContent = profile.nome || profile.name || 'Aluno';
+      document.getElementById('restricted-email').textContent = profile.email || '—';
+      document.getElementById('restricted-plan').textContent = profile.plano || profile.plan || 'Em revisão';
+      const statusEl = document.getElementById('restricted-status');
+      statusEl.textContent = profile.statusPagamento || profile.status || 'Ativo';
+      statusEl.className = 'status ' + ((profile.statusPagamento || profile.status) === 'Pago' ? 'status-ok' : 'status-warning');
+      document.getElementById('restricted-session').textContent = profile.proximaSessao || 'Próximos passos serão confirmados com seu mentor.';
+      document.getElementById('restricted-note').textContent = 'Mantenha este link em sigilo. Apenas você tem acesso aos dados acima.';
+    }
+
+    renderRestrictedArea();
+  </script>
+</body>
+</html>
