@@ -443,9 +443,10 @@
       return window.location.origin;
     }
 
+    const hasApiBaseAttr = document.body.hasAttribute('data-api-base');
     const apiBaseAttr = (document.body.dataset.apiBase || '').trim();
     const apiBase = resolveApiBase();
-    const useMockApi = !apiBaseAttr || apiBaseAttr.toLowerCase() === 'mock';
+    const useMockApi = !hasApiBaseAttr || apiBaseAttr.toLowerCase() === 'mock';
 
     const tokenKey = 'mentoria-auth-token';
 
