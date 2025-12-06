@@ -15,6 +15,7 @@
       <div class="brand">MentoriaTCC</div>
       <div class="nav-actions">
         <a href="#contato" class="btn ghost">Fale com a gente</a>
+        <a href="cadastro.html" class="btn ghost">Criar conta</a>
         <a href="#login" class="btn ghost">Área do aluno</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
       </div>
@@ -190,6 +191,7 @@
           <a id="painel-btn" class="btn primary" href="area-aluno.html" aria-disabled="true">Ir para o painel</a>
           <span id="session-status" class="session-status">Nenhum usuário autenticado.</span>
         </div>
+        <p class="form-note">Prefere uma página só de cadastro? Use <a class="inline-link" href="cadastro.html">cadastro.html</a> para criar seu acesso.</p>
         <p class="form-note">A API roda localmente (porta 4000 por padrão). Para uso público, publique o back-end e atualize o endpoint do front-end.</p>
       </div>
     </section>
@@ -402,6 +404,7 @@
     const sessionStatus = document.querySelector('#session-status');
     const logoutBtn = document.querySelector('#logout-btn');
     const painelBtn = document.querySelector('#painel-btn');
+
     const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
     let authMode = 'login';
     let authToken = localStorage.getItem('authToken');

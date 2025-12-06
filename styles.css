@@ -497,7 +497,6 @@ a {
   cursor: not-allowed;
 }
 
-
 .session-status {
   color: var(--muted);
   font-size: 14px;
@@ -512,6 +511,12 @@ a {
 .form-note a {
   color: #cdd6ff;
   font-weight: 600;
+}
+
+.inline-link {
+  color: #cdd6ff;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .hidden {

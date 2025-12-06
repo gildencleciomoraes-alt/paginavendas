@@ -5,6 +5,7 @@ Página estática para divulgar serviços de consultoria de TCC, com seções de
 ## Estrutura
 - `index.html`: marcação principal da landing page e script do acordeão/login.
 - `styles.css`: estilos globais e responsivos.
+- `cadastro.html`: página dedicada para visitantes criarem conta (nome, e-mail e senha) e seguirem para o painel.
 - `api/`: API Node/Express simples com autenticação via SQLite e JWT para testes locais.
 
 ## Visualizar
@@ -27,6 +28,9 @@ Alternativa: envie a pasta para serviços como Netlify ou Vercel, escolhendo o d
 
 ## Login de usuários
 O formulário de login agora consome uma API simples inclusa no projeto (porta padrão 4000). Ela permite criar usuários e fazer login localmente, salvando o token JWT no `localStorage`, liberando o painel na landing e redirecionando para a página dedicada `area-aluno.html`.
+
+Você pode cadastrar pelo próprio `index.html` (aba **Criar acesso básico**) ou pela página específica `cadastro.html`, que também grava o token e envia direto para o painel.
+
 ### Como rodar a API local (SQLite)
 1. Instale dependências na pasta `api`:
    ```bash
