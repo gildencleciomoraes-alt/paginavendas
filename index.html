@@ -443,7 +443,10 @@
       return window.location.origin;
     }
 
+    const hasApiBaseAttr = document.body.hasAttribute('data-api-base');
+    const apiBaseAttr = (document.body.dataset.apiBase || '').trim();
     const apiBase = resolveApiBase();
+    const useMockApi = !hasApiBaseAttr || apiBaseAttr.toLowerCase() === 'mock';
 
     const tokenKey = 'mentoria-auth-token';
 
@@ -489,7 +492,110 @@
     function buildApiUrl(path) {
       return new URL(path, apiBase).toString();
     }
+
+    function parseJsonBody(options) {
+      try {
+        return options?.body ? JSON.parse(options.body) : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    const mockStorageKey = 'mentoria-mock-users';
+    const mockCurrentKey = 'mentoria-mock-current';
+
+    function getMockUsers() {
+      try {
+        const raw = localStorage.getItem(mockStorageKey);
+        return raw ? JSON.parse(raw) : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function setMockUsers(users) {
+      localStorage.setItem(mockStorageKey, JSON.stringify(users));
+    }
+
+    function setMockCurrentUser(email) {
+      localStorage.setItem(mockCurrentKey, email);
+    }
+
+    function getMockCurrentUser() {
+      return localStorage.getItem(mockCurrentKey);
+    }
+
+    function mockApiRequest(path, options = {}) {
+      const body = parseJsonBody(options);
+      const users = getMockUsers();
+      const lowerPath = path.toLowerCase();
+
+      if (lowerPath === '/api/auth/register') {
+        if (!body?.nome || !body?.email || !body?.senha) {
+          return Promise.reject(new Error('Preencha todos os campos para continuar.'));
+        }
+
+        const alreadyExists = users.some(user => user.email.toLowerCase() === body.email.toLowerCase());
+        if (alreadyExists) {
+          return Promise.reject(new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.'));
+        }
+
+        const newUser = {
+          nome: body.nome,
+          email: body.email,
+          senha: body.senha,
+          plano: 'Mentoria Essencial',
+          status: 'Ativo',
+          proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
+        };
+
+        users.push(newUser);
+        setMockUsers(users);
+        setMockCurrentUser(newUser.email);
+        localStorage.setItem(tokenKey, 'mock-token');
+
+        return Promise.resolve({ token: 'mock-token', user: newUser });
+      }
+
+      if (lowerPath === '/api/auth/login') {
+        if (!body?.email || !body?.password) {
+          return Promise.reject(new Error('Informe e-mail e senha para continuar.'));
+        }
+
+        const foundUser = users.find(user => user.email.toLowerCase() === body.email.toLowerCase());
+        if (!foundUser || foundUser.senha !== body.password) {
+          return Promise.reject(new Error('Credenciais não encontradas no modo demonstrativo.'));
+        }
+
+        setMockCurrentUser(foundUser.email);
+        localStorage.setItem(tokenKey, 'mock-token');
+
+        return Promise.resolve({ token: 'mock-token', user: foundUser });
+      }
+
+      if (lowerPath === '/api/members/me') {
+        const token = localStorage.getItem(tokenKey);
+        if (!token) {
+          return Promise.reject(new Error('Não autorizado. Faça login ou cadastre-se.'));
+        }
+
+        const currentEmail = getMockCurrentUser();
+        const profile = users.find(user => user.email === currentEmail);
+
+        if (!profile) {
+          return Promise.reject(new Error('Não autorizado. Faça login ou cadastre-se.'));
+        }
+
+        return Promise.resolve(profile);
+      }
+
+      return Promise.reject(new Error('Endpoint não suportado no modo demonstrativo. Configure a API real para continuar.'));
+    }
     async function apiRequest(path, options = {}) {
+      if (useMockApi) {
+        return mockApiRequest(path, options);
+      }
+
       const token = localStorage.getItem(tokenKey);
       const headers = {
         'Content-Type': 'application/json',
