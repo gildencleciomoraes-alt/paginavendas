@@ -4,8 +4,11 @@ Página estática para divulgar serviços de consultoria de TCC, com seções de
 
 ## Estrutura
 - `index.html`: marcação principal da landing page e script do acordeão/login.
-
 - `styles.css`: estilos globais e responsivos.
+- `cadastro.html`: página dedicada para visitantes criarem conta (nome, e-mail e senha) e seguirem para o painel.
+- `pagina.html`: página pública permanente gerada para cada aluno (busca dados em `/pages/:slug`).
+- `admin.html`: painel para o administrador listar usuários, recriar páginas e acessar slugs.
+- `api/`: API Node/Express simples com autenticação via SQLite e JWT para testes locais.
 
 ## Visualizar
 Abra `index.html` em qualquer navegador ou use um servidor local simples (por exemplo, `python -m http.server`).

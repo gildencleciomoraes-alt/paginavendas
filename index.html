@@ -16,6 +16,7 @@
       <div class="brand">MentoriaTCC</div>
       <div class="nav-actions">
         <a href="#contato" class="btn ghost">Fale com a gente</a>
+        <a href="cadastro.html" class="btn ghost">Criar conta</a>
         <a href="#login" class="btn ghost">Área do aluno</a>
         <a href="#cadastro" class="btn ghost">Fazer cadastro</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
@@ -250,19 +251,34 @@
         <p class="description">Faça login para acompanhar suas sessões, baixar modelos e enviar capítulos para revisão.</p>
       </div>
       <div class="form-card">
-        <form id="login-form" class="form-grid">
+        <div class="auth-tabs" role="tablist" aria-label="Alternar entre login e cadastro">
+          <button type="button" class="auth-tab active" data-mode="login">Já tenho acesso</button>
+          <button type="button" class="auth-tab" data-mode="register">Criar acesso básico</button>
+        </div>
+        <form id="login-form" class="form-grid" novalidate>
+          <div class="form-group auth-name" hidden>
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" placeholder="Seu nome completo" autocomplete="name" />
+          </div>
           <div class="form-group">
             <label for="email">E-mail</label>
-            <input type="email" id="email" name="email" placeholder="seu@email.com" required />
+            <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" required />
           </div>
           <div class="form-group">
             <label for="senha">Senha</label>
-            <input type="password" id="senha" name="senha" placeholder="••••••••" required />
+            <input type="password" id="senha" name="senha" placeholder="••••••••" autocomplete="current-password" required />
           </div>
-          <button type="submit" class="btn primary full" data-loading="Entrando...">Entrar</button>
-          <p id="login-feedback" class="form-feedback">Área demonstrativa para alunos habilitados.</p>
+          <button type="submit" class="btn primary full">Continuar</button>
+          <p id="login-feedback" class="form-feedback">Área conectada a uma API simples para testes locais.</p>
         </form>
-        <p class="form-note">Ainda não tem acesso? Fale com a equipe no <a href="https://wa.me/5574988321232?text=Quero%20acesso%20%C3%A0%20%C3%A1rea%20do%20aluno" target="_blank" rel="noopener">WhatsApp</a> para liberar seu login.</p>
+        <div class="session-row">
+          <button type="button" id="logout-btn" class="btn ghost" disabled>Encerrar sessão</button>
+          <a id="painel-btn" class="btn primary" href="area-aluno.html" aria-disabled="true">Ir para o painel</a>
+          <a id="pagina-btn" class="btn ghost" href="#" aria-disabled="true">Minha página</a>
+          <span id="session-status" class="session-status">Nenhum usuário autenticado.</span>
+        </div>
+        <p class="form-note">Prefere uma página só de cadastro? Use <a class="inline-link" href="cadastro.html">cadastro.html</a> para criar seu acesso.</p>
+        <p class="form-note">A API roda localmente (porta 4000 por padrão). Para uso público, publique o back-end e atualize o endpoint do front-end.</p>
       </div>
     </section>
     <section id="cadastro" class="section login">
@@ -514,23 +530,36 @@
     const registerFeedback = document.querySelector('#register-feedback');
     const studentArea = document.querySelector('#area-aluno');
     const proximaSessao = document.querySelector('#proxima-sessao');
-    const refreshButton = document.querySelector('#refresh-dashboard');
-    const dashboardFeedback = document.querySelector('#dashboard-feedback');
-    const usuarioNome = document.querySelector('#usuario-nome');
-    const usuarioEmail = document.querySelector('#usuario-email');
-    const usuarioArea = document.querySelector('#usuario-area');
-    const usuarioPlano = document.querySelector('#usuario-plano');
-    const usuarioStatus = document.querySelector('#usuario-status');
-    const usuarioRecado = document.querySelector('#usuario-recado');
-    const usuarioConteudos = document.querySelector('#usuario-conteudos');
-    function resolveApiBase() {
-      const attrBase = (document.body.dataset.apiBase || '').trim();
-      if (attrBase) {
-        try {
-          return new URL(attrBase, window.location.origin).toString().replace(/\/$/, '');
-        } catch (error) {
-          console.warn('URL de API inválida no atributo data-api-base:', error);
-        }
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const nameGroup = document.querySelector('.auth-name');
+    const sessionStatus = document.querySelector('#session-status');
+    const logoutBtn = document.querySelector('#logout-btn');
+    const painelBtn = document.querySelector('#painel-btn');
+    const paginaBtn = document.querySelector('#pagina-btn');
+
+    const SUPABASE_URL = window.SUPABASE_URL || 'https://atgotspourufrqqnhirl.supabase.co';
+    const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z290c3BvdXJ1ZnJxcW5oaXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzUzNjksImV4cCI6MjA4MDYxMTM2OX0.IJSEzMehhCT_yLxfzhFC6mrTbzWwo2svbgs3P1sHPHs';
+    const hasSupabase = Boolean(SUPABASE_URL && SUPABASE_KEY);
+    const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    const API_BASE = window.AUTH_API_BASE || (!hasSupabase ? 'http://localhost:4000' : null);
+
+    let authMode = 'login';
+    let authToken = localStorage.getItem('authToken');
+    let userPageSlug = localStorage.getItem('authPage');
+
+    const slugify = text =>
+      text
+        ?.normalize('NFD')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase();
+
+    const updateSessionStatus = (user, page) => {
+      if (page?.slug) {
+        userPageSlug = page.slug;
+        localStorage.setItem('authPage', page.slug);
       }
       return window.location.origin;
     }
@@ -544,35 +573,31 @@
     const useSupabase = Boolean(supabaseClient);
     const useMockApi = !useSupabase && (!apiBaseAttr || apiBaseAttr.toLowerCase() === 'mock');
 
-    const tokenKey = 'mentoria-auth-token';
-    const profileKey = 'mentoria-user-profile';
-    const rememberLoginKey = 'mentoria-remembered-login';
-    const adminSessionKey = 'mentoria-admin-session';
-
-    const demoAccounts = [
-      {
-        email: 'aluno@mentoriatcc.com',
-        senha: 'mentoria123',
-        nome: 'Aluno Mentoria',
-        area: 'Aluno',
-        plano: 'Plano demonstrativo',
-        status: 'Ativo',
-        proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
-        painelMensagem: 'Bem-vindo! Confira as orientações e materiais do seu plano.',
-        conteudosLiberados: 'Modelo ABNT, checklist semanal e link para mentoria.',
-      },
-      {
-        email: 'teste@mentoriatcc.com',
-        senha: 'tcc2024',
-        nome: 'Visitante Demonstrativo',
-        area: 'Mentorado',
-        plano: 'Mentoria Essencial',
-        status: 'Aguardando',
-        proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
-        painelMensagem: 'Aguardando liberação final. Enquanto isso, revise o checklist.',
-        conteudosLiberados: 'Checklist inicial e materiais introdutórios.',
+      if (user) {
+        sessionStatus.textContent = `Sessão ativa: ${user.name} (${user.email})`;
+        logoutBtn.removeAttribute('disabled');
+        painelBtn?.removeAttribute('aria-disabled');
+        painelBtn?.classList.remove('disabled');
+        if (paginaBtn) {
+          const slug = page?.slug || userPageSlug;
+          if (slug) {
+            paginaBtn.href = `pagina.html?slug=${encodeURIComponent(slug)}`;
+            paginaBtn.removeAttribute('aria-disabled');
+            paginaBtn.classList.remove('disabled');
+          }
+        }
+      } else {
+        sessionStatus.textContent = 'Nenhum usuário autenticado.';
+        logoutBtn.setAttribute('disabled', 'true');
+        painelBtn?.setAttribute('aria-disabled', 'true');
+        painelBtn?.classList.add('disabled');
+        if (paginaBtn) {
+          paginaBtn.setAttribute('aria-disabled', 'true');
+          paginaBtn.classList.add('disabled');
+          paginaBtn.href = '#';
+        }
       }
-    ];
+    };
 
     function saveUserProfile(profile) {
       if (!profile) return;
@@ -625,144 +650,74 @@
       studentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function updateDashboardFromProfile(profile) {
-      if (!profile) return;
-      if (usuarioNome) usuarioNome.textContent = profile.nome || profile.name || 'Aluno';
-      if (usuarioEmail) usuarioEmail.textContent = profile.email || '—';
-      if (usuarioArea) usuarioArea.textContent = profile.area || 'Aluno';
-      if (usuarioPlano) usuarioPlano.textContent = profile.plano || profile.plan || 'Em definição';
-      if (usuarioStatus) {
-        usuarioStatus.textContent = profile.statusPagamento || profile.status || 'Ativo';
-        usuarioStatus.className = 'status ' + (profile.statusPagamento === 'Pago' || profile.status === 'Ativo' ? 'status-ok' : 'status-warning');
+    async function apiRequest(path, options = {}) {
+      if (!API_BASE) throw new Error('Configure AUTH_API_BASE ou Supabase.');
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data.error || 'Erro ao comunicar com a API.';
+        throw new Error(message);
       }
-      if (usuarioRecado) usuarioRecado.textContent = profile.painelMensagem || 'Sem recados do administrador.';
-      if (usuarioConteudos) usuarioConteudos.textContent = profile.conteudosLiberados || 'Conteúdos serão liberados pelo administrador.';
-      if (proximaSessao && profile.proximaSessao) {
-        proximaSessao.textContent = profile.proximaSessao;
+      return data;
+    }
+
+    async function supabaseSession() {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return data.session;
+    }
+
+    async function supabaseUser() {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data.user;
+    }
+
+    function mapSupabaseUser(user) {
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário'
+      };
+    }
+
+    function derivePage(user) {
+      if (!user) return null;
+      const base = slugify(user.name || user.email?.split('@')[0] || 'usuario') || 'usuario';
+      const suffix = user.id ? user.id.toString().slice(0, 6) : Date.now();
+      const slug = `${base}-${suffix}`;
+      return { slug, title: 'Página personalizada do aluno' };
+    }
+
+    function persistLocalSession({ user, token, page }) {
+      if (token) localStorage.setItem('authToken', token);
+      const finalPage = page || user?.page || (user?.email ? derivePage(user) : null);
+      if (finalPage?.slug) localStorage.setItem('authPage', finalPage.slug);
+      if (user) localStorage.setItem('authUser', JSON.stringify({ ...user, page: finalPage }));
+      updateSessionStatus(user, finalPage);
+      return finalPage;
+    }
+
+    async function registerWithProvider({ name, email, password }) {
+      if (supabase) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } }
+        });
+        if (error) throw new Error(error.message || 'Erro ao registrar no Supabase.');
+        const user = mapSupabaseUser(data.user);
+        authToken = data.session?.access_token || null;
+        const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
+        return { user, token: authToken, page };
       }
-    }
-
-    function buildApiUrl(path) {
-      return new URL(path, apiBase).toString();
-    }
-
-    function parseJsonBody(options) {
-      try {
-        return options?.body ? JSON.parse(options.body) : {};
-      } catch (error) {
-        return {};
-      }
-    }
-
-    const userStorageKey = 'mentoria-users-db';
-    const currentUserKey = 'mentoria-current-email';
-
-    const adminSeed = {
-      nome: 'Administrador',
-      email: 'admin@mentoriatcc.com',
-      senha: 'admin123',
-      area: 'Admin',
-      plano: 'Gestão',
-      status: 'Ativo',
-      proximaSessao: '—',
-      painelMensagem: 'Use este painel para acompanhar e ajustar os alunos.',
-      conteudosLiberados: 'Acesso total aos cadastros.',
-    };
-
-    function getStoredUsers() {
-      try {
-        const raw = localStorage.getItem(userStorageKey);
-        return raw ? JSON.parse(raw) : [];
-      } catch (error) {
-        return [];
-      }
-    }
-
-    function saveUsers(users) {
-      localStorage.setItem(userStorageKey, JSON.stringify(users));
-    }
-
-    function seedDatabase() {
-      const users = getStoredUsers();
-      if (!users.length) {
-        const seededUsers = [
-          adminSeed,
-          {
-            nome: 'Aluno Mentoria',
-            email: 'aluno@mentoriatcc.com',
-            senha: 'mentoria123',
-            area: 'Aluno',
-            plano: 'Plano demonstrativo',
-            status: 'Ativo',
-            proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
-            painelMensagem: 'Veja seus materiais e siga o checklist semanal.',
-            conteudosLiberados: 'Modelo ABNT, roteiro metodológico, checklist de revisão.',
-          },
-          {
-            nome: 'Visitante Demonstrativo',
-            email: 'teste@mentoriatcc.com',
-            senha: 'tcc2024',
-            area: 'Mentorado',
-            plano: 'Mentoria Essencial',
-            status: 'Aguardando',
-            proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
-            painelMensagem: 'Aguardando confirmação de pagamento. Aproveite os materiais liberados.',
-            conteudosLiberados: 'Checklist inicial, roteiro de entrevistas, calendário de entregas.',
-          },
-        ];
-        saveUsers(seededUsers);
-      }
-    }
-
-    function setCurrentUser(email) {
-      localStorage.setItem(currentUserKey, email);
-    }
-
-    function getCurrentUserEmail() {
-      return localStorage.getItem(currentUserKey);
-    }
-
-    function setAdminSession(email) {
-      if (!email) return;
-      localStorage.setItem(adminSessionKey, email);
-    }
-
-    function getAdminSessionEmail() {
-      return localStorage.getItem(adminSessionKey);
-    }
-
-    function clearAdminSession() {
-      localStorage.removeItem(adminSessionKey);
-    }
-
-    function findUserByEmail(email) {
-      const users = getStoredUsers();
-      return users.find(user => user.email.toLowerCase() === email.toLowerCase());
-    }
-
-    function persistPasswordForUser(email, senha) {
-      if (!email || !senha) return;
-      const existing = findUserByEmail(email) || { email, nome: email };
-      upsertUser({ ...existing, senha });
-    }
-
-    function upsertUser(updatedUser) {
-      const users = getStoredUsers();
-      const index = users.findIndex(user => user.email.toLowerCase() === updatedUser.email.toLowerCase());
-      if (index >= 0) {
-        users[index] = { ...users[index], ...updatedUser };
-      } else {
-        users.push(updatedUser);
-      }
-      saveUsers(users);
-      return users[index >= 0 ? index : users.length - 1];
-    }
-
-    function deleteUser(email) {
-      const users = getStoredUsers();
-      const filtered = users.filter(user => user.email.toLowerCase() !== email.toLowerCase());
-      saveUsers(filtered);
-      return filtered;
+      return apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
     }
 
     function mapSupabaseUser(user) {
@@ -916,8 +871,7 @@
 
         return Promise.resolve(profile);
       }
-
-      return Promise.reject(new Error('Endpoint não suportado no modo local. Configure a API real para continuar.'));
+      return apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     }
     async function apiRequest(path, options = {}) {
       if (useSupabase) {
@@ -940,271 +894,90 @@
 
       let response;
 
+    async function loadSession() {
       try {
-        response = await fetch(buildApiUrl(path), { ...options, headers });
-      } catch (networkError) {
-        throw new Error('Falha na conexão com o servidor. Confirme a URL do back-end e se ele está online.');
-      }
-      const contentType = response.headers.get('Content-Type') || '';
-      const isJson = contentType.includes('application/json');
-      const data = isJson ? await response.json() : null;
-
-      if (!response.ok) {
-        const message = data?.message || data?.error || 'Não foi possível completar a ação.';
-        throw new Error(message);
-      }
-
-      return data;
-    }
-
-    function handleAuthSuccess(payload, feedbackEl, successMessage) {
-      const token = payload?.token;
-      if (token) {
-        localStorage.setItem(tokenKey, token);
-      }
-
-      const nome = payload?.user?.name || payload?.user?.nome || 'Aluno Mentoria';
-      const profile = payload?.user;
-      if (feedbackEl) {
-        feedbackEl.textContent = successMessage;
-        feedbackEl.className = 'form-feedback success';
-      }
-
-      if (profile) {
-        saveUserProfile(profile);
-        if (profile.email) {
-          setCurrentUser(profile.email);
-        }
-      }
-
-      updateDashboardFromProfile(profile);
-      showStudentArea(nome);
-      redirectToRestricted();
-    }
-
-    async function fetchMemberData() {
-      if (!dashboardFeedback) return;
-      dashboardFeedback.textContent = 'Sincronizando com o back-end...';
-      dashboardFeedback.className = 'form-feedback';
-
-      try {
-        const profile = await apiRequest('/api/members/me');
-        dashboardFeedback.textContent = 'Dados carregados com sucesso.';
-        dashboardFeedback.className = 'form-feedback success';
-        saveUserProfile(profile);
-        updateDashboardFromProfile(profile);
-        showStudentArea(profile?.nome || profile?.name || 'Aluno');
-      } catch (error) {
-        dashboardFeedback.textContent = error?.message || 'Erro ao buscar dados do aluno.';
-        dashboardFeedback.className = 'form-feedback error';
-        if (error?.message?.toLowerCase().includes('não autorizado')) {
-          studentArea?.classList.add('hidden');
-        }
-      }
-    }
-
-    seedDatabase();
-
-    const adminLoginForm = document.querySelector('#admin-login-form');
-    const adminFeedback = document.querySelector('#admin-feedback');
-    const adminPanel = document.querySelector('#admin-panel');
-    const adminUsersContainer = document.querySelector('#admin-users-container');
-    const adminSummary = document.querySelector('#admin-summary');
-    const adminSubtitle = document.querySelector('#admin-subtitle');
-    const adminEditForm = document.querySelector('#admin-edit-form');
-    const adminEditFeedback = document.querySelector('#admin-edit-feedback');
-    const adminEditNome = document.querySelector('#admin-edit-nome');
-    const adminEditEmail = document.querySelector('#admin-edit-email');
-    const adminEditArea = document.querySelector('#admin-edit-area');
-    const adminEditPlano = document.querySelector('#admin-edit-plano');
-    const adminEditStatus = document.querySelector('#admin-edit-status');
-    const adminEditSessao = document.querySelector('#admin-edit-sessao');
-    const adminEditRecado = document.querySelector('#admin-edit-recado');
-    const adminEditConteudos = document.querySelector('#admin-edit-conteudos');
-    const adminClearForm = document.querySelector('#admin-clear-form');
-    const adminLogout = document.querySelector('#admin-logout');
-    const adminRefresh = document.querySelector('#admin-refresh');
-
-    function renderAdminTable() {
-      if (!adminUsersContainer) return;
-      const users = getStoredUsers();
-
-      if (!users.length) {
-        adminUsersContainer.innerHTML = '<p class="description">Nenhum cadastro encontrado.</p>';
-        return;
-      }
-
-      adminSummary.textContent = `${users.length} usuários cadastrados`;
-      adminSubtitle.textContent = 'Clique em editar para mudar área, plano ou status.';
-
-      adminUsersContainer.innerHTML = users
-        .map(user => `
-          <div class="admin-row" data-email="${user.email}">
-            <div>
-              <strong>${user.nome}</strong>
-              <p class="muted">${user.email} • Área: ${user.area || 'Aluno'} • Plano: ${user.plano || '—'}</p>
-            </div>
-            <div class="admin-row-actions">
-              <button type="button" class="btn ghost admin-edit-btn" data-email="${user.email}">Editar</button>
-              <button type="button" class="btn ghost danger admin-delete-btn" data-email="${user.email}">Excluir</button>
-            </div>
-          </div>
-        `)
-        .join('');
-
-      adminUsersContainer.querySelectorAll('.admin-edit-btn').forEach(button => {
-        button.addEventListener('click', () => selectUserForEdit(button.dataset.email));
-      });
-
-      adminUsersContainer.querySelectorAll('.admin-delete-btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const email = button.dataset.email;
-          if (confirm(`Excluir cadastro de ${email}?`)) {
-            deleteUser(email);
-            renderAdminTable();
-            adminEditFeedback.textContent = 'Cadastro removido. Atualize ou selecione outro usuário.';
-            adminEditFeedback.className = 'form-feedback success';
-          }
-        });
-      });
-    }
-
-    function selectUserForEdit(email) {
-      const user = findUserByEmail(email);
-      if (!user || !adminEditForm) return;
-      adminEditForm.dataset.selectedEmail = email;
-      adminEditNome.value = user.nome || '';
-      adminEditEmail.value = user.email || '';
-      adminEditArea.value = user.area || 'Aluno';
-      adminEditPlano.value = user.plano || '';
-      adminEditStatus.value = user.status || user.statusPagamento || '';
-      adminEditSessao.value = user.proximaSessao || '';
-      adminEditRecado.value = user.painelMensagem || '';
-      adminEditConteudos.value = user.conteudosLiberados || '';
-      adminEditFeedback.textContent = `Editando ${user.nome || user.email}.`;
-      adminEditFeedback.className = 'form-feedback success';
-    }
-
-    function clearAdminForm() {
-      if (!adminEditForm) return;
-      adminEditForm.reset();
-      delete adminEditForm.dataset.selectedEmail;
-      adminEditFeedback.textContent = 'Selecione um usuário para ajustar os dados.';
-      adminEditFeedback.className = 'form-feedback';
-    }
-
-    function openAdminPanel() {
-      adminPanel?.classList.remove('hidden');
-      renderAdminTable();
-    }
-
-    function closeAdminPanel() {
-      adminPanel?.classList.add('hidden');
-      clearAdminForm();
-    }
-
-    function preloadRememberedLogin() {
-      const remembered = getRememberedLogin();
-      if (remembered && loginForm) {
-        loginForm.email.value = remembered.email || '';
-        loginForm.senha.value = remembered.senha || '';
-      }
-    }
-
-    function resumeAdminPanel() {
-      const adminEmail = getAdminSessionEmail();
-      if (!adminEmail) return;
-      const adminUser = findUserByEmail(adminEmail);
-
-      if (adminUser && (adminUser.area || '').toLowerCase() === 'admin') {
-        if (adminLoginForm) {
-          adminLoginForm.email.value = adminUser.email;
-          adminLoginForm.senha.value = adminUser.senha || '';
-        }
-        adminFeedback.textContent = 'Painel carregado automaticamente para o administrador.';
-        adminFeedback.className = 'form-feedback success';
-        openAdminPanel();
-      } else {
-        clearAdminSession();
-      }
-    }
-
-    if (adminLoginForm && adminFeedback) {
-      adminLoginForm.addEventListener('submit', event => {
-        event.preventDefault();
-        const email = adminLoginForm.email.value.trim();
-        const senha = adminLoginForm.senha.value.trim();
-
-        if (!email || !senha) {
-          adminFeedback.textContent = 'Informe e-mail e senha do administrador.';
-          adminFeedback.className = 'form-feedback error';
+        if (supabase) {
+          const session = await supabaseSession();
+          if (!session) throw new Error('Nenhuma sessão ativa.');
+          const user = mapSupabaseUser(session.user) || mapSupabaseUser(await supabaseUser());
+          authToken = session.access_token;
+          const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
+          loginFeedback.textContent = 'Sessão validada no Supabase.';
+          loginFeedback.className = 'form-feedback success';
+          showStudentArea(user.name);
           return;
         }
 
-        const adminUser = findUserByEmail(email);
-        if (!adminUser || adminUser.senha !== senha || (adminUser.area || '').toLowerCase() !== 'admin') {
-          adminFeedback.textContent = 'Credenciais de admin inválidas.';
-          adminFeedback.className = 'form-feedback error';
+        if (!authToken) {
+          updateSessionStatus(null);
+          if (studentArea) studentArea.classList.add('hidden');
           return;
         }
 
-        adminFeedback.textContent = 'Acesso liberado! Carregando painel...';
-        adminFeedback.className = 'form-feedback success';
-        setAdminSession(adminUser.email);
-        persistPasswordForUser(adminUser.email, senha);
-        openAdminPanel();
+        const { user, page } = await apiRequest('/auth/me');
+        persistLocalSession({ user, token: authToken, page });
+        loginFeedback.textContent = 'Sessão válida.';
+        loginFeedback.className = 'form-feedback success';
+        showStudentArea(user.name);
+      } catch (err) {
+        console.error(err);
+        authToken = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authPage');
+        updateSessionStatus(null);
+        if (studentArea) studentArea.classList.add('hidden');
+      }
+    }
+
+    function setMode(mode) {
+      authMode = mode;
+      authTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.mode === mode));
+      const isRegister = mode === 'register';
+      if (nameGroup) {
+        nameGroup.hidden = !isRegister;
+        nameGroup.classList.toggle('visible', isRegister);
+      }
+      const passwordField = document.querySelector('#senha');
+      if (passwordField) {
+        passwordField.setAttribute('autocomplete', isRegister ? 'new-password' : 'current-password');
+      }
+      loginFeedback.textContent = isRegister
+        ? 'Crie um acesso integrado ao Supabase (PostgreSQL) ou API local.'
+        : 'Faça login usando um usuário já cadastrado.';
+      loginFeedback.className = 'form-feedback';
+    }
+
+    if (authTabs.length) {
+      authTabs.forEach(tab => {
+        tab.addEventListener('click', () => setMode(tab.dataset.mode));
       });
     }
 
-    adminLogout?.addEventListener('click', () => {
-      adminFeedback.textContent = 'Você saiu do painel.';
-      adminFeedback.className = 'form-feedback';
-      clearAdminSession();
-      closeAdminPanel();
-    });
-
-    adminRefresh?.addEventListener('click', () => {
-      renderAdminTable();
-      adminEditFeedback.textContent = 'Base recarregada com sucesso.';
-      adminEditFeedback.className = 'form-feedback success';
-    });
-
-    adminClearForm?.addEventListener('click', () => clearAdminForm());
-
-    adminEditForm?.addEventListener('submit', event => {
-      event.preventDefault();
-      const selected = adminEditForm.dataset.selectedEmail;
-      if (!selected) {
-        adminEditFeedback.textContent = 'Escolha um usuário para editar.';
-        adminEditFeedback.className = 'form-feedback error';
-        return;
-      }
-
-      const existing = findUserByEmail(selected);
-      const updated = {
-        ...existing,
-        nome: adminEditNome.value.trim(),
-        email: adminEditEmail.value.trim(),
-        area: adminEditArea.value,
-        plano: adminEditPlano.value.trim(),
-        status: adminEditStatus.value.trim(),
-        proximaSessao: adminEditSessao.value.trim(),
-        painelMensagem: adminEditRecado.value.trim(),
-        conteudosLiberados: adminEditConteudos.value.trim(),
-      };
-
-      upsertUser(updated);
-      adminEditFeedback.textContent = 'Cadastro atualizado e salvo no banco local.';
-      adminEditFeedback.className = 'form-feedback success';
-      renderAdminTable();
-    });
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          if (supabase) await supabase.auth.signOut();
+        } catch (error) {
+          console.error('Erro ao sair do Supabase', error);
+        }
+        authToken = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        localStorage.removeItem('authPage');
+        updateSessionStatus(null);
+        loginFeedback.textContent = 'Sessão encerrada.';
+        loginFeedback.className = 'form-feedback';
+        if (studentArea) studentArea.classList.add('hidden');
+      });
+    }
 
     if (loginForm && loginFeedback) {
-      loginForm.addEventListener('submit', event => {
+      loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         const formData = new FormData(loginForm);
         const email = formData.get('email')?.toString().trim();
         const password = formData.get('senha')?.toString().trim();
+        const name = formData.get('nome')?.toString().trim();
 
         if (!email || !password) {
           loginFeedback.textContent = 'Preencha e-mail e senha para continuar.';
@@ -1212,6 +985,37 @@
           return;
         }
 
+        if (authMode === 'register' && (!name || name.length < 3)) {
+          loginFeedback.textContent = 'Informe um nome com pelo menos 3 caracteres para registrar.';
+          loginFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        try {
+          const payload = authMode === 'register'
+            ? await registerWithProvider({ name, email, password })
+            : await loginWithProvider({ email, password });
+
+          authToken = payload.token;
+          persistLocalSession({ user: payload.user, token: payload.token, page: payload.page });
+          loginFeedback.textContent = authMode === 'register'
+            ? 'Conta criada e sessão iniciada.'
+            : 'Login validado com sucesso.';
+          loginFeedback.className = 'form-feedback success';
+          showStudentArea(payload.user.name);
+          setTimeout(() => {
+            window.location.href = 'area-aluno.html';
+          }, 600);
+        } catch (error) {
+          loginFeedback.textContent = error.message;
+          loginFeedback.className = 'form-feedback error';
+          if (studentArea) studentArea.classList.add('hidden');
+        }
+      });
+    }
+
+    setMode('login');
+    loadSession();
         const match = demoAccounts.find(account => account.email === email && account.senha === password);
 
         if (match) {
