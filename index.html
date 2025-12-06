@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-api-base="http://localhost:3000">
+<body data-api-base="">
   <header class="hero">
     <nav class="nav">
       <div class="brand">MentoriaTCC</div>
@@ -431,8 +431,20 @@
     const usuarioEmail = document.querySelector('#usuario-email');
     const usuarioPlano = document.querySelector('#usuario-plano');
     const usuarioStatus = document.querySelector('#usuario-status');
+    function resolveApiBase() {
+      const attrBase = (document.body.dataset.apiBase || '').trim();
+      if (attrBase) {
+        try {
+          return new URL(attrBase, window.location.origin).toString().replace(/\/$/, '');
+        } catch (error) {
+          console.warn('URL de API inválida no atributo data-api-base:', error);
+        }
+      }
+      return window.location.origin;
+    }
 
-    const apiBase = document.body.dataset.apiBase || 'http://localhost:3000';
+    const apiBase = resolveApiBase();
+
     const tokenKey = 'mentoria-auth-token';
 
     const demoAccounts = [
@@ -474,6 +486,9 @@
       }
     }
 
+    function buildApiUrl(path) {
+      return new URL(path, apiBase).toString();
+    }
     async function apiRequest(path, options = {}) {
       const token = localStorage.getItem(tokenKey);
       const headers = {
@@ -485,7 +500,13 @@
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+      let response;
+
+      try {
+        response = await fetch(buildApiUrl(path), { ...options, headers });
+      } catch (networkError) {
+        throw new Error('Falha na conexão com o servidor. Confirme a URL do back-end e se ele está online.');
+      }
       const contentType = response.headers.get('Content-Type') || '';
       const isJson = contentType.includes('application/json');
       const data = isJson ? await response.json() : null;
@@ -612,6 +633,7 @@
         fetchMemberData().finally(() => toggleButtonLoading(refreshButton, false));
       });
     }
+
 
     const storedToken = localStorage.getItem(tokenKey);
     if (storedToken) {
