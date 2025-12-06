@@ -16,6 +16,7 @@
       <div class="nav-actions">
         <a href="#contato" class="btn ghost">Fale com a gente</a>
         <a href="#login" class="btn ghost">Área do aluno</a>
+        <a href="#cadastro" class="btn ghost">Fazer cadastro</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
       </div>
     </nav>
@@ -449,11 +450,25 @@
     const useMockApi = !hasApiBaseAttr || apiBaseAttr.toLowerCase() === 'mock';
 
     const tokenKey = 'mentoria-auth-token';
+    const profileKey = 'mentoria-user-profile';
 
     const demoAccounts = [
       { email: 'aluno@mentoriatcc.com', senha: 'mentoria123', nome: 'Aluno Mentoria' },
       { email: 'teste@mentoriatcc.com', senha: 'tcc2024', nome: 'Visitante Demonstrativo' }
     ];
+
+    function saveUserProfile(profile) {
+      if (!profile) return;
+      try {
+        localStorage.setItem(profileKey, JSON.stringify(profile));
+      } catch (error) {
+        console.warn('Não foi possível salvar o perfil localmente.', error);
+      }
+    }
+
+    function redirectToRestricted() {
+      window.location.href = 'restricted.html';
+    }
 
     function toggleButtonLoading(button, isLoading) {
       if (!button) return;
@@ -632,13 +647,19 @@
       }
 
       const nome = payload?.user?.name || payload?.user?.nome || 'Aluno Mentoria';
+      const profile = payload?.user;
       if (feedbackEl) {
         feedbackEl.textContent = successMessage;
         feedbackEl.className = 'form-feedback success';
       }
 
-      updateDashboardFromProfile(payload?.user);
+      if (profile) {
+        saveUserProfile(profile);
+      }
+
+      updateDashboardFromProfile(profile);
       showStudentArea(nome);
+      redirectToRestricted();
     }
 
     async function fetchMemberData() {
@@ -650,6 +671,7 @@
         const profile = await apiRequest('/api/members/me');
         dashboardFeedback.textContent = 'Dados carregados com sucesso.';
         dashboardFeedback.className = 'form-feedback success';
+        saveUserProfile(profile);
         updateDashboardFromProfile(profile);
         showStudentArea(profile?.nome || profile?.name || 'Aluno');
       } catch (error) {
@@ -677,9 +699,14 @@
         const match = demoAccounts.find(account => account.email === email && account.senha === password);
 
         if (match) {
-          loginFeedback.textContent = 'Login validado! Painel demonstrativo liberado. Para acesso definitivo, solicite à equipe de suporte.';
-          loginFeedback.className = 'form-feedback success';
-          showStudentArea(match.nome);
+          const demoProfile = {
+            nome: match.nome,
+            email: match.email,
+            plano: 'Plano demonstrativo',
+            status: 'Ativo',
+            proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
+          };
+          handleAuthSuccess({ user: demoProfile, token: 'demo-token' }, loginFeedback, 'Login validado! Redirecionando para sua área restrita.');
           return;
         }
 
