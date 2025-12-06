@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-api-base="http://localhost:3000">
   <header class="hero">
     <nav class="nav">
       <div class="brand">MentoriaTCC</div>
@@ -174,10 +174,36 @@
             <label for="senha">Senha</label>
             <input type="password" id="senha" name="senha" placeholder="••••••••" required />
           </div>
-          <button type="submit" class="btn primary full">Entrar</button>
+          <button type="submit" class="btn primary full" data-loading="Entrando...">Entrar</button>
           <p id="login-feedback" class="form-feedback">Área demonstrativa para alunos habilitados.</p>
         </form>
         <p class="form-note">Ainda não tem acesso? Fale com a equipe no <a href="https://wa.me/5574988321232?text=Quero%20acesso%20%C3%A0%20%C3%A1rea%20do%20aluno" target="_blank" rel="noopener">WhatsApp</a> para liberar seu login.</p>
+      </div>
+    </section>
+    <section id="cadastro" class="section login">
+      <div class="section-header">
+        <p class="tag">Cadastro rápido</p>
+        <h2>Crie seu acesso em poucos segundos</h2>
+        <p class="description">Envie seus dados para liberar um usuário e receber o painel de materiais e sessões.</p>
+      </div>
+      <div class="form-card">
+        <form id="register-form" class="form-grid">
+          <div class="form-group">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome" placeholder="Seu nome" required />
+          </div>
+          <div class="form-group">
+            <label for="email-cadastro">E-mail</label>
+            <input type="email" id="email-cadastro" name="email" placeholder="seu@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="senha-cadastro">Senha</label>
+            <input type="password" id="senha-cadastro" name="senha" placeholder="Crie uma senha" required />
+          </div>
+          <button type="submit" class="btn primary full" data-loading="Cadastrando...">Cadastrar e liberar acesso</button>
+          <p id="register-feedback" class="form-feedback">Seu acesso é criado e validado pelo back-end.</p>
+        </form>
+        <p class="form-note">O e-mail deve ser o mesmo utilizado nos atendimentos para vinculamos seu plano automaticamente.</p>
       </div>
     </section>
     <section id="area-aluno" class="section student-area hidden" aria-live="polite">
@@ -220,6 +246,19 @@
             <li>Correções: <span class="status status-warning">Em revisão (48h)</span></li>
             <li>Próximo passo: enviar slides de apresentação</li>
           </ul>
+        </article>
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Seus dados</span>
+            <strong id="usuario-nome">—</strong>
+          </div>
+          <ul>
+            <li><strong>E-mail:</strong> <span id="usuario-email">—</span></li>
+            <li><strong>Plano:</strong> <span id="usuario-plano">—</span></li>
+            <li><strong>Status de pagamento:</strong> <span id="usuario-status" class="status status-warning">Aguardando</span></li>
+          </ul>
+          <button id="refresh-dashboard" class="btn ghost full" type="button">Sincronizar com o back-end</button>
+          <p id="dashboard-feedback" class="form-feedback">Para ver dados reais, faça login ou cadastre-se.</p>
         </article>
       </div>
     </section>
@@ -382,19 +421,117 @@
 
     const loginForm = document.querySelector('#login-form');
     const loginFeedback = document.querySelector('#login-feedback');
+    const registerForm = document.querySelector('#register-form');
+    const registerFeedback = document.querySelector('#register-feedback');
     const studentArea = document.querySelector('#area-aluno');
     const proximaSessao = document.querySelector('#proxima-sessao');
+    const refreshButton = document.querySelector('#refresh-dashboard');
+    const dashboardFeedback = document.querySelector('#dashboard-feedback');
+    const usuarioNome = document.querySelector('#usuario-nome');
+    const usuarioEmail = document.querySelector('#usuario-email');
+    const usuarioPlano = document.querySelector('#usuario-plano');
+    const usuarioStatus = document.querySelector('#usuario-status');
+
+    const apiBase = document.body.dataset.apiBase || 'http://localhost:3000';
+    const tokenKey = 'mentoria-auth-token';
 
     const demoAccounts = [
       { email: 'aluno@mentoriatcc.com', senha: 'mentoria123', nome: 'Aluno Mentoria' },
       { email: 'teste@mentoriatcc.com', senha: 'tcc2024', nome: 'Visitante Demonstrativo' }
     ];
 
+    function toggleButtonLoading(button, isLoading) {
+      if (!button) return;
+      const loadingText = button.dataset.loading;
+      if (isLoading) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText || button.textContent;
+        button.disabled = true;
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+      }
+    }
+
     function showStudentArea(userName) {
       if (!studentArea || !proximaSessao) return;
       proximaSessao.textContent = `Olá, ${userName}! Próxima sessão em 12/09 às 19h.`;
       studentArea.classList.remove('hidden');
       studentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function updateDashboardFromProfile(profile) {
+      if (!profile) return;
+      if (usuarioNome) usuarioNome.textContent = profile.nome || profile.name || 'Aluno';
+      if (usuarioEmail) usuarioEmail.textContent = profile.email || '—';
+      if (usuarioPlano) usuarioPlano.textContent = profile.plano || profile.plan || 'Em definição';
+      if (usuarioStatus) {
+        usuarioStatus.textContent = profile.statusPagamento || profile.status || 'Ativo';
+        usuarioStatus.className = 'status ' + (profile.statusPagamento === 'Pago' || profile.status === 'Ativo' ? 'status-ok' : 'status-warning');
+      }
+      if (proximaSessao && profile.proximaSessao) {
+        proximaSessao.textContent = profile.proximaSessao;
+      }
+    }
+
+    async function apiRequest(path, options = {}) {
+      const token = localStorage.getItem(tokenKey);
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+      const contentType = response.headers.get('Content-Type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await response.json() : null;
+
+      if (!response.ok) {
+        const message = data?.message || data?.error || 'Não foi possível completar a ação.';
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    function handleAuthSuccess(payload, feedbackEl, successMessage) {
+      const token = payload?.token;
+      if (token) {
+        localStorage.setItem(tokenKey, token);
+      }
+
+      const nome = payload?.user?.name || payload?.user?.nome || 'Aluno Mentoria';
+      if (feedbackEl) {
+        feedbackEl.textContent = successMessage;
+        feedbackEl.className = 'form-feedback success';
+      }
+
+      updateDashboardFromProfile(payload?.user);
+      showStudentArea(nome);
+    }
+
+    async function fetchMemberData() {
+      if (!dashboardFeedback) return;
+      dashboardFeedback.textContent = 'Sincronizando com o back-end...';
+      dashboardFeedback.className = 'form-feedback';
+
+      try {
+        const profile = await apiRequest('/api/members/me');
+        dashboardFeedback.textContent = 'Dados carregados com sucesso.';
+        dashboardFeedback.className = 'form-feedback success';
+        updateDashboardFromProfile(profile);
+        showStudentArea(profile?.nome || profile?.name || 'Aluno');
+      } catch (error) {
+        dashboardFeedback.textContent = error?.message || 'Erro ao buscar dados do aluno.';
+        dashboardFeedback.className = 'form-feedback error';
+        if (error?.message?.toLowerCase().includes('não autorizado')) {
+          studentArea?.classList.add('hidden');
+        }
+      }
     }
 
     if (loginForm && loginFeedback) {
@@ -412,17 +549,73 @@
 
         const match = demoAccounts.find(account => account.email === email && account.senha === password);
 
-        if (!match) {
-          loginFeedback.textContent = 'Credenciais não reconhecidas. Utilize um login demonstrativo ou peça acesso pelo WhatsApp.';
-          loginFeedback.className = 'form-feedback error';
-          if (studentArea) studentArea.classList.add('hidden');
+        if (match) {
+          loginFeedback.textContent = 'Login validado! Painel demonstrativo liberado. Para acesso definitivo, solicite à equipe de suporte.';
+          loginFeedback.className = 'form-feedback success';
+          showStudentArea(match.nome);
           return;
         }
 
-        loginFeedback.textContent = 'Login validado! Painel demonstrativo liberado. Para acesso definitivo, solicite à equipe de suporte.';
-        loginFeedback.className = 'form-feedback success';
-        showStudentArea(match.nome);
+        toggleButtonLoading(loginForm.querySelector('button'), true);
+
+        apiRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        })
+          .then(data => {
+            handleAuthSuccess(data, loginFeedback, 'Login aprovado pelo back-end. Painel liberado!');
+          })
+          .catch(error => {
+            loginFeedback.textContent = error?.message || 'Credenciais não reconhecidas. Utilize um login demonstrativo ou peça acesso pelo WhatsApp.';
+            loginFeedback.className = 'form-feedback error';
+            if (studentArea) studentArea.classList.add('hidden');
+          })
+          .finally(() => toggleButtonLoading(loginForm.querySelector('button'), false));
       });
+    }
+
+    if (registerForm && registerFeedback) {
+      registerForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const formData = new FormData(registerForm);
+        const nome = formData.get('nome')?.toString().trim();
+        const email = formData.get('email')?.toString().trim();
+        const senha = formData.get('senha')?.toString().trim();
+
+        if (!nome || !email || !senha) {
+          registerFeedback.textContent = 'Preencha todos os campos para criar seu acesso.';
+          registerFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        toggleButtonLoading(registerForm.querySelector('button'), true);
+        apiRequest('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ nome, email, senha }),
+        })
+          .then(data => {
+            registerFeedback.textContent = 'Cadastro criado e autorizado! Você já pode acessar o painel.';
+            registerFeedback.className = 'form-feedback success';
+            handleAuthSuccess(data, registerFeedback, 'Cadastro criado e autorizado! Você já pode acessar o painel.');
+          })
+          .catch(error => {
+            registerFeedback.textContent = error?.message || 'Não foi possível criar seu usuário agora. Tente novamente.';
+            registerFeedback.className = 'form-feedback error';
+          })
+          .finally(() => toggleButtonLoading(registerForm.querySelector('button'), false));
+      });
+    }
+
+    if (refreshButton) {
+      refreshButton.addEventListener('click', () => {
+        toggleButtonLoading(refreshButton, true);
+        fetchMemberData().finally(() => toggleButtonLoading(refreshButton, false));
+      });
+    }
+
+    const storedToken = localStorage.getItem(tokenKey);
+    if (storedToken) {
+      fetchMemberData();
     }
 
   </script>
