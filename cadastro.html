@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro | MentoriaTCC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      background: var(--surface);
+    }
+    .signup-hero {
+      padding: 32px clamp(16px, 4vw, 48px) 40px;
+      background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.18), transparent 32%),
+        radial-gradient(circle at 82% 8%, rgba(34, 197, 94, 0.16), transparent 34%),
+        var(--surface);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .signup-grid {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      align-items: center;
+      gap: clamp(18px, 3vw, 32px);
+    }
+    .signup-card {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .signup-note {
+      color: var(--muted);
+      text-align: center;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .inline-link {
+      color: #cdd6ff;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="signup-hero">
+    <nav class="nav">
+      <div class="brand">MentoriaTCC</div>
+      <div class="nav-actions">
+        <a class="btn ghost" href="index.html">Voltar</a>
+        <a class="btn primary" href="index.html#login">Já tenho login</a>
+      </div>
+    </nav>
+    <div class="signup-grid">
+      <div>
+        <p class="tag">Criar acesso</p>
+        <h1>Cadastre-se para acessar a área do aluno</h1>
+        <p class="lead">Use seu e-mail e crie uma senha para liberar o painel do aluno. Tudo roda em uma API simples com SQLite
+          para testes locais.</p>
+        <ul class="hero-card" style="margin-top:16px;">
+          <li>Cadastro rápido: nome, e-mail e senha</li>
+          <li>Token salvo no navegador para manter a sessão</li>
+          <li>Redirecionamento automático para o painel</li>
+        </ul>
+      </div>
+      <div class="form-card signup-card">
+        <form id="signup-form" class="form-grid" novalidate>
+          <div class="form-group">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome" placeholder="Seu nome" autocomplete="name" required />
+          </div>
+          <div class="form-group">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" required />
+          </div>
+          <div class="form-group">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha" placeholder="••••••••" autocomplete="new-password" required />
+          </div>
+          <button type="submit" class="btn primary full">Criar conta e entrar</button>
+          <p id="signup-feedback" class="form-feedback">Seu cadastro será gravado no banco local da API.</p>
+        </form>
+        <p class="signup-note">Já tem conta? <a class="inline-link" href="index.html#login">Volte para o login</a>.</p>
+      </div>
+    </div>
+  </header>
+
+  <script>
+    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+    const form = document.querySelector('#signup-form');
+    const feedback = document.querySelector('#signup-feedback');
+    let authToken = localStorage.getItem('authToken');
+
+    const apiRequest = async (path, options = {}) => {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao comunicar com a API.');
+      }
+      return data;
+    };
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const name = formData.get('nome')?.toString().trim();
+      const email = formData.get('email')?.toString().trim();
+      const password = formData.get('senha')?.toString().trim();
+
+      if (!name || name.length < 3) {
+        feedback.textContent = 'Informe um nome com pelo menos 3 caracteres.';
+        feedback.className = 'form-feedback error';
+        return;
+      }
+      if (!email || !/.+@.+\..+/.test(email)) {
+        feedback.textContent = 'Digite um e-mail válido.';
+        feedback.className = 'form-feedback error';
+        return;
+      }
+      if (!password || password.length < 6) {
+        feedback.textContent = 'Use uma senha com 6 caracteres ou mais.';
+        feedback.className = 'form-feedback error';
+        return;
+      }
+
+      try {
+        const payload = await apiRequest('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, password })
+        });
+        authToken = payload.token;
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('authUser', JSON.stringify(payload.user));
+        feedback.textContent = 'Conta criada! Redirecionando para o painel...';
+        feedback.className = 'form-feedback success';
+        setTimeout(() => {
+          window.location.href = 'area-aluno.html';
+        }, 700);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.className = 'form-feedback error';
+      }
+    });
+  </script>
+</body>
+</html>

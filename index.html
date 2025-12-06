@@ -15,6 +15,7 @@
       <div class="brand">MentoriaTCC</div>
       <div class="nav-actions">
         <a href="#contato" class="btn ghost">Fale com a gente</a>
+        <a href="cadastro.html" class="btn ghost">Criar conta</a>
         <a href="#login" class="btn ghost">Área do aluno</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
       </div>
@@ -165,19 +166,33 @@
         <p class="description">Faça login para acompanhar suas sessões, baixar modelos e enviar capítulos para revisão.</p>
       </div>
       <div class="form-card">
-        <form id="login-form" class="form-grid">
+        <div class="auth-tabs" role="tablist" aria-label="Alternar entre login e cadastro">
+          <button type="button" class="auth-tab active" data-mode="login">Já tenho acesso</button>
+          <button type="button" class="auth-tab" data-mode="register">Criar acesso básico</button>
+        </div>
+        <form id="login-form" class="form-grid" novalidate>
+          <div class="form-group auth-name" hidden>
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" placeholder="Seu nome completo" autocomplete="name" />
+          </div>
           <div class="form-group">
             <label for="email">E-mail</label>
-            <input type="email" id="email" name="email" placeholder="seu@email.com" required />
+            <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" required />
           </div>
           <div class="form-group">
             <label for="senha">Senha</label>
-            <input type="password" id="senha" name="senha" placeholder="••••••••" required />
+            <input type="password" id="senha" name="senha" placeholder="••••••••" autocomplete="current-password" required />
           </div>
-          <button type="submit" class="btn primary full">Entrar</button>
-          <p id="login-feedback" class="form-feedback">Área demonstrativa para alunos habilitados.</p>
+          <button type="submit" class="btn primary full">Continuar</button>
+          <p id="login-feedback" class="form-feedback">Área conectada a uma API simples para testes locais.</p>
         </form>
-        <p class="form-note">Ainda não tem acesso? Fale com a equipe no <a href="https://wa.me/5574988321232?text=Quero%20acesso%20%C3%A0%20%C3%A1rea%20do%20aluno" target="_blank" rel="noopener">WhatsApp</a> para liberar seu login.</p>
+        <div class="session-row">
+          <button type="button" id="logout-btn" class="btn ghost" disabled>Encerrar sessão</button>
+          <a id="painel-btn" class="btn primary" href="area-aluno.html" aria-disabled="true">Ir para o painel</a>
+          <span id="session-status" class="session-status">Nenhum usuário autenticado.</span>
+        </div>
+        <p class="form-note">Prefere uma página só de cadastro? Use <a class="inline-link" href="cadastro.html">cadastro.html</a> para criar seu acesso.</p>
+        <p class="form-note">A API roda localmente (porta 4000 por padrão). Para uso público, publique o back-end e atualize o endpoint do front-end.</p>
       </div>
     </section>
     <section id="area-aluno" class="section student-area hidden" aria-live="polite">
@@ -384,11 +399,29 @@
     const loginFeedback = document.querySelector('#login-feedback');
     const studentArea = document.querySelector('#area-aluno');
     const proximaSessao = document.querySelector('#proxima-sessao');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const nameGroup = document.querySelector('.auth-name');
+    const sessionStatus = document.querySelector('#session-status');
+    const logoutBtn = document.querySelector('#logout-btn');
+    const painelBtn = document.querySelector('#painel-btn');
 
-    const demoAccounts = [
-      { email: 'aluno@mentoriatcc.com', senha: 'mentoria123', nome: 'Aluno Mentoria' },
-      { email: 'teste@mentoriatcc.com', senha: 'tcc2024', nome: 'Visitante Demonstrativo' }
-    ];
+    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+    let authMode = 'login';
+    let authToken = localStorage.getItem('authToken');
+
+    const updateSessionStatus = user => {
+      if (user) {
+        sessionStatus.textContent = `Sessão ativa: ${user.name} (${user.email})`;
+        logoutBtn.removeAttribute('disabled');
+        painelBtn?.removeAttribute('aria-disabled');
+        painelBtn?.classList.remove('disabled');
+      } else {
+        sessionStatus.textContent = 'Nenhum usuário autenticado.';
+        logoutBtn.setAttribute('disabled', 'true');
+        painelBtn?.setAttribute('aria-disabled', 'true');
+        painelBtn?.classList.add('disabled');
+      }
+    };
 
     function showStudentArea(userName) {
       if (!studentArea || !proximaSessao) return;
@@ -397,12 +430,81 @@
       studentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    async function apiRequest(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data.error || 'Erro ao comunicar com a API.';
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    function setMode(mode) {
+      authMode = mode;
+      authTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.mode === mode));
+      const isRegister = mode === 'register';
+      if (nameGroup) {
+        nameGroup.hidden = !isRegister;
+        nameGroup.classList.toggle('visible', isRegister);
+      }
+      const passwordField = document.querySelector('#senha');
+      if (passwordField) {
+        passwordField.setAttribute('autocomplete', isRegister ? 'new-password' : 'current-password');
+      }
+      loginFeedback.textContent = isRegister
+        ? 'Crie um acesso local. Os dados ficam no SQLite do servidor.'
+        : 'Faça login usando um usuário já cadastrado.';
+      loginFeedback.className = 'form-feedback';
+    }
+
+    async function loadSession() {
+      if (!authToken) {
+        updateSessionStatus(null);
+        if (studentArea) studentArea.classList.add('hidden');
+        return;
+      }
+      try {
+        const { user } = await apiRequest('/auth/me');
+        updateSessionStatus(user);
+        loginFeedback.textContent = 'Sessão válida.';
+        loginFeedback.className = 'form-feedback success';
+        showStudentArea(user.name);
+      } catch (err) {
+        console.error(err);
+        authToken = null;
+        localStorage.removeItem('authToken');
+        updateSessionStatus(null);
+      }
+    }
+
+    if (authTabs.length) {
+      authTabs.forEach(tab => {
+        tab.addEventListener('click', () => setMode(tab.dataset.mode));
+      });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        authToken = null;
+        localStorage.removeItem('authToken');
+        updateSessionStatus(null);
+        loginFeedback.textContent = 'Sessão encerrada.';
+        loginFeedback.className = 'form-feedback';
+        if (studentArea) studentArea.classList.add('hidden');
+      });
+    }
+
     if (loginForm && loginFeedback) {
-      loginForm.addEventListener('submit', event => {
+      loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         const formData = new FormData(loginForm);
         const email = formData.get('email')?.toString().trim();
         const password = formData.get('senha')?.toString().trim();
+        const name = formData.get('nome')?.toString().trim();
 
         if (!email || !password) {
           loginFeedback.textContent = 'Preencha e-mail e senha para continuar.';
@@ -410,21 +512,38 @@
           return;
         }
 
-        const match = demoAccounts.find(account => account.email === email && account.senha === password);
-
-        if (!match) {
-          loginFeedback.textContent = 'Credenciais não reconhecidas. Utilize um login demonstrativo ou peça acesso pelo WhatsApp.';
+        if (authMode === 'register' && (!name || name.length < 3)) {
+          loginFeedback.textContent = 'Informe um nome com pelo menos 3 caracteres para registrar.';
           loginFeedback.className = 'form-feedback error';
-          if (studentArea) studentArea.classList.add('hidden');
           return;
         }
 
-        loginFeedback.textContent = 'Login validado! Painel demonstrativo liberado. Para acesso definitivo, solicite à equipe de suporte.';
-        loginFeedback.className = 'form-feedback success';
-        showStudentArea(match.nome);
+        try {
+          const payload = authMode === 'register'
+            ? await apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) })
+            : await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+          authToken = payload.token;
+          localStorage.setItem('authToken', authToken);
+          updateSessionStatus(payload.user);
+          loginFeedback.textContent = authMode === 'register'
+            ? 'Conta criada e sessão iniciada.'
+            : 'Login validado com sucesso.';
+          loginFeedback.className = 'form-feedback success';
+          showStudentArea(payload.user.name);
+          setTimeout(() => {
+            window.location.href = 'area-aluno.html';
+          }, 600);
+        } catch (error) {
+          loginFeedback.textContent = error.message;
+          loginFeedback.className = 'form-feedback error';
+          if (studentArea) studentArea.classList.add('hidden');
+        }
       });
     }
 
+    setMode('login');
+    loadSession();
   </script>
 </body>
 </html>
