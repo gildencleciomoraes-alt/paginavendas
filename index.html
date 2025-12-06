@@ -180,6 +180,49 @@
         <p class="form-note">Ainda não tem acesso? Fale com a equipe no <a href="https://wa.me/5574988321232?text=Quero%20acesso%20%C3%A0%20%C3%A1rea%20do%20aluno" target="_blank" rel="noopener">WhatsApp</a> para liberar seu login.</p>
       </div>
     </section>
+    <section id="area-aluno" class="section student-area hidden" aria-live="polite">
+      <div class="section-header">
+        <p class="tag">Painel do aluno</p>
+        <h2>Mentorias, materiais e entregas</h2>
+        <p class="description">Após o login, liberamos um painel demonstrativo com próximos encontros, materiais e status das entregas.</p>
+      </div>
+      <div class="dashboard-grid">
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Próxima sessão</span>
+            <strong id="proxima-sessao">—</strong>
+          </div>
+          <ul>
+            <li><strong>Mentor:</strong> Equipe MentoriaTCC</li>
+            <li><strong>Tema:</strong> Planejamento do capítulo metodológico</li>
+            <li><strong>Status:</strong> Preparar referências antes da reunião</li>
+          </ul>
+        </article>
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Materiais</span>
+            <strong>Biblioteca liberada</strong>
+          </div>
+          <ul>
+            <li>Modelo de estrutura em ABNT (Word)</li>
+            <li>Checklist de formatação e citações</li>
+            <li>Roteiro para entrevistas qualitativas</li>
+          </ul>
+          <a class="btn ghost full" href="#contato">Solicitar novos materiais</a>
+        </article>
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Envios</span>
+            <strong>Última entrega</strong>
+          </div>
+          <ul>
+            <li>Capítulo teórico enviado: <span class="status status-ok">Recebido</span></li>
+            <li>Correções: <span class="status status-warning">Em revisão (48h)</span></li>
+            <li>Próximo passo: enviar slides de apresentação</li>
+          </ul>
+        </article>
+      </div>
+    </section>
     <section id="planos" class="section pricing">
       <div class="section-header">
         <p class="tag">Planos</p>
@@ -336,8 +379,24 @@
         content.style.maxHeight = isOpen ? null : `${content.scrollHeight}px`;
       });
     });
+
     const loginForm = document.querySelector('#login-form');
     const loginFeedback = document.querySelector('#login-feedback');
+    const studentArea = document.querySelector('#area-aluno');
+    const proximaSessao = document.querySelector('#proxima-sessao');
+
+    const demoAccounts = [
+      { email: 'aluno@mentoriatcc.com', senha: 'mentoria123', nome: 'Aluno Mentoria' },
+      { email: 'teste@mentoriatcc.com', senha: 'tcc2024', nome: 'Visitante Demonstrativo' }
+    ];
+
+    function showStudentArea(userName) {
+      if (!studentArea || !proximaSessao) return;
+      proximaSessao.textContent = `Olá, ${userName}! Próxima sessão em 12/09 às 19h.`;
+      studentArea.classList.remove('hidden');
+      studentArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     if (loginForm && loginFeedback) {
       loginForm.addEventListener('submit', event => {
         event.preventDefault();
@@ -351,8 +410,18 @@
           return;
         }
 
-        loginFeedback.textContent = 'Login demonstrativo: o acesso definitivo é liberado pela equipe de suporte.';
+        const match = demoAccounts.find(account => account.email === email && account.senha === password);
+
+        if (!match) {
+          loginFeedback.textContent = 'Credenciais não reconhecidas. Utilize um login demonstrativo ou peça acesso pelo WhatsApp.';
+          loginFeedback.className = 'form-feedback error';
+          if (studentArea) studentArea.classList.add('hidden');
+          return;
+        }
+
+        loginFeedback.textContent = 'Login validado! Painel demonstrativo liberado. Para acesso definitivo, solicite à equipe de suporte.';
         loginFeedback.className = 'form-feedback success';
+        showStudentArea(match.nome);
       });
     }
 

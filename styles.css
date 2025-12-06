@@ -470,6 +470,59 @@ a {
   font-weight: 600;
 }
 
+.hidden {
+  display: none;
+}
+
+.student-area .description {
+  color: var(--muted);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.dashboard {
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-ok {
+  background: rgba(34, 197, 94, 0.18);
+  color: #befae3;
+}
+
+.status-warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fef3c7;
+}
+
 .contact-card {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
