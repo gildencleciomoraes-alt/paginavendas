@@ -46,6 +46,8 @@
             <li><strong>Área:</strong> <span id="restricted-area">—</span></li>
             <li><strong>Plano:</strong> <span id="restricted-plan">—</span></li>
             <li><strong>Status:</strong> <span id="restricted-status" class="status status-warning">—</span></li>
+            <li><strong>Recado do admin:</strong> <span id="restricted-recado">—</span></li>
+            <li><strong>Conteúdos liberados:</strong> <span id="restricted-conteudos">—</span></li>
           </ul>
         </article>
         <article class="card dashboard">
@@ -100,6 +102,8 @@
       const statusEl = document.getElementById('restricted-status');
       statusEl.textContent = profile.statusPagamento || profile.status || 'Ativo';
       statusEl.className = 'status ' + ((profile.statusPagamento || profile.status) === 'Pago' ? 'status-ok' : 'status-warning');
+      document.getElementById('restricted-recado').textContent = profile.painelMensagem || 'Sem recados adicionais.';
+      document.getElementById('restricted-conteudos').textContent = profile.conteudosLiberados || 'O administrador definirá seus materiais.';
       document.getElementById('restricted-session').textContent = profile.proximaSessao || 'Próximos passos serão confirmados com seu mentor.';
       document.getElementById('restricted-note').textContent = 'Mantenha este link em sigilo. Apenas você tem acesso aos dados acima.';
     }
