@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel do Aluno | MentoriaTCC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      background: var(--surface);
+    }
+    .dashboard-wrapper {
+      max-width: 1040px;
+      margin: 48px auto;
+      padding: 0 16px 48px;
+    }
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .user-meta {
+      color: var(--muted);
+      margin: 6px 0 0;
+    }
+    .resources-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .resource-item ul {
+      padding-left: 18px;
+      color: var(--muted);
+    }
+    .warning {
+      padding: 14px 16px;
+      background: rgba(239, 68, 68, 0.12);
+      color: #fecdd3;
+      border: 1px solid rgba(248, 113, 113, 0.5);
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .status-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(99, 102, 241, 0.12);
+      border-radius: 12px;
+      color: #cdd6ff;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header class="hero" style="padding-bottom:32px;">
+    <nav class="nav">
+      <div class="brand">MentoriaTCC</div>
+      <div class="nav-actions">
+        <a href="index.html#login" class="btn ghost">Voltar</a>
+        <button id="sair" class="btn ghost">Sair</button>
+      </div>
+    </nav>
+    <div class="section-header" style="margin-bottom:12px;">
+      <p class="tag">Painel do aluno</p>
+      <h1 id="saudacao">Carregando...</h1>
+      <p class="description">Acompanhe sessões, materiais e envios exclusivos. Seu acesso é protegido por token (JWT).</p>
+    </div>
+  </header>
+
+  <main class="dashboard-wrapper">
+    <div id="alerta" class="warning" hidden>Você precisa fazer login na página principal para acessar o painel.</div>
+    <div class="status-line" id="status-sessao">Validando sessão...</div>
+
+    <section class="section" style="padding:32px 0;">
+      <div class="dashboard-grid">
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Sessão agendada</span>
+            <strong id="info-sessao">—</strong>
+          </div>
+          <ul>
+            <li><strong>Mentor:</strong> Equipe MentoriaTCC</li>
+            <li><strong>Tema:</strong> Próximos passos personalizados</li>
+            <li><strong>Status:</strong> Arquivos preparados e checklist liberado</li>
+          </ul>
+          <button class="btn ghost full" id="confirmar-sessao">Confirmar presença</button>
+        </article>
+
+        <article class="card dashboard resource-item">
+          <div class="card-header">
+            <span class="pill">Materiais premium</span>
+            <strong>Downloads liberados</strong>
+          </div>
+          <ul>
+            <li>Modelo de TCC com comentários do mentor</li>
+            <li>Checklist ABNT interativo (Google Sheets)</li>
+            <li>Guia rápido de revisão metodológica (PDF)</li>
+          </ul>
+          <a class="btn primary full" href="https://wa.me/5574988321232?text=Envie%20mais%20materiais%20para%20meu%20TCC" target="_blank" rel="noopener">Pedir novos materiais</a>
+        </article>
+
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Envios recentes</span>
+            <strong>Histórico</strong>
+          </div>
+          <ul>
+            <li>Capítulo metodológico: <span class="status status-ok">Recebido</span></li>
+            <li>Revisão de referências: <span class="status status-warning">Em andamento</span></li>
+            <li>Slides para banca: <span class="status status-neutral">Pendente</span></li>
+          </ul>
+          <button class="btn ghost full" id="enviar-novo">Enviar novo arquivo</button>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+    const statusSessao = document.querySelector('#status-sessao');
+    const alerta = document.querySelector('#alerta');
+    const saudacao = document.querySelector('#saudacao');
+    const infoSessao = document.querySelector('#info-sessao');
+    const btnSair = document.querySelector('#sair');
+    const btnConfirmar = document.querySelector('#confirmar-sessao');
+    const btnEnviar = document.querySelector('#enviar-novo');
+
+    let authToken = localStorage.getItem('authToken');
+
+    const apiRequest = async (path, options = {}) => {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao comunicar com a API.');
+      }
+      return data;
+    };
+
+    async function carregarSessao() {
+      if (!authToken) {
+        alerta.hidden = false;
+        statusSessao.textContent = 'Nenhum token encontrado. Faça login na página principal.';
+        return;
+      }
+      try {
+        const { user } = await apiRequest('/auth/me');
+        saudacao.textContent = `Bem-vindo(a), ${user.name}`;
+        statusSessao.textContent = `Sessão ativa para ${user.email}`;
+        infoSessao.textContent = '12/09 • 19h (online)';
+        localStorage.setItem('authUser', JSON.stringify(user));
+      } catch (err) {
+        alerta.hidden = false;
+        statusSessao.textContent = err.message;
+      }
+    }
+
+    btnSair?.addEventListener('click', () => {
+      authToken = null;
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+      window.location.href = 'index.html#login';
+    });
+
+    btnConfirmar?.addEventListener('click', () => {
+      statusSessao.textContent = 'Presença confirmada. Nos vemos na mentoria!';
+      btnConfirmar.disabled = true;
+    });
+
+    btnEnviar?.addEventListener('click', () => {
+      statusSessao.textContent = 'Envio registrado. Mentor será notificado.';
+    });
+
+    carregarSessao();
+  </script>
+</body>
+</html>
