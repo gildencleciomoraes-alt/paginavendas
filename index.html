@@ -431,7 +431,6 @@
     const usuarioEmail = document.querySelector('#usuario-email');
     const usuarioPlano = document.querySelector('#usuario-plano');
     const usuarioStatus = document.querySelector('#usuario-status');
-
     function resolveApiBase() {
       const attrBase = (document.body.dataset.apiBase || '').trim();
       if (attrBase) {
@@ -445,6 +444,7 @@
     }
 
     const apiBase = resolveApiBase();
+
     const tokenKey = 'mentoria-auth-token';
 
     const demoAccounts = [
@@ -489,7 +489,6 @@
     function buildApiUrl(path) {
       return new URL(path, apiBase).toString();
     }
-
     async function apiRequest(path, options = {}) {
       const token = localStorage.getItem(tokenKey);
       const headers = {
@@ -508,7 +507,6 @@
       } catch (networkError) {
         throw new Error('Falha na conexão com o servidor. Confirme a URL do back-end e se ele está online.');
       }
-
       const contentType = response.headers.get('Content-Type') || '';
       const isJson = contentType.includes('application/json');
       const data = isJson ? await response.json() : null;
@@ -635,6 +633,7 @@
         fetchMemberData().finally(() => toggleButtonLoading(refreshButton, false));
       });
     }
+
 
     const storedToken = localStorage.getItem(tokenKey);
     if (storedToken) {
