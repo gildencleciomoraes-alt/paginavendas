@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body data-api-base="">
   <header class="hero">
     <nav class="nav">
       <div class="brand">MentoriaTCC</div>
@@ -17,6 +17,7 @@
         <a href="#contato" class="btn ghost">Fale com a gente</a>
         <a href="cadastro.html" class="btn ghost">Criar conta</a>
         <a href="#login" class="btn ghost">Área do aluno</a>
+        <a href="#cadastro" class="btn ghost">Fazer cadastro</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
       </div>
     </nav>
@@ -94,6 +95,89 @@
             <li>Gerenciamento de referências e citações</li>
           </ul>
         </article>
+      </div>
+    </section>
+    <section id="admin" class="section login">
+      <div class="section-header">
+        <p class="tag">Painel administrativo</p>
+        <h2>Gerencie cadastros e áreas de acesso</h2>
+        <p class="description">Use o login de administrador para editar, mover ou remover alunos cadastrados.</p>
+      </div>
+      <div class="admin-grid">
+        <div class="form-card">
+          <form id="admin-login-form" class="form-grid">
+            <div class="form-group">
+              <label for="admin-email">E-mail do admin</label>
+              <input type="email" id="admin-email" name="email" placeholder="admin@mentoriatcc.com" required />
+            </div>
+            <div class="form-group">
+              <label for="admin-senha">Senha do admin</label>
+              <input type="password" id="admin-senha" name="senha" placeholder="••••••••" required />
+            </div>
+            <button type="submit" class="btn primary full" data-loading="Entrando...">Entrar no painel</button>
+            <p id="admin-feedback" class="form-feedback">Apenas administradores conseguem acessar esta área.</p>
+          </form>
+          <p class="form-note">Login padrão: admin@mentoriatcc.com / admin123 (alterável no próprio painel).</p>
+        </div>
+        <div id="admin-panel" class="form-card hidden" aria-live="polite">
+          <div class="admin-panel-header">
+            <div>
+              <p class="tag">Banco local</p>
+              <h3 id="admin-summary">0 usuários cadastrados</h3>
+              <p class="description" id="admin-subtitle">Os dados ficam salvos no navegador para logins futuros.</p>
+            </div>
+            <div class="admin-actions">
+              <button id="admin-refresh" type="button" class="btn ghost">Recarregar base</button>
+              <button id="admin-logout" type="button" class="btn ghost">Sair do painel</button>
+            </div>
+          </div>
+          <div class="admin-table" id="admin-users-container"></div>
+          <form id="admin-edit-form" class="admin-edit-grid">
+            <h4>Editar cadastro selecionado</h4>
+            <p class="form-feedback" id="admin-edit-feedback">Selecione um usuário para ajustar os dados.</p>
+            <label class="form-group">
+              <span>Nome</span>
+              <input type="text" id="admin-edit-nome" name="nome" placeholder="Nome do aluno" required />
+            </label>
+            <label class="form-group">
+              <span>E-mail</span>
+              <input type="email" id="admin-edit-email" name="email" readonly />
+            </label>
+            <label class="form-group">
+              <span>Área</span>
+              <select id="admin-edit-area" name="area">
+                <option value="Aluno">Aluno</option>
+                <option value="Mentorado">Mentorado</option>
+                <option value="VIP">VIP</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span>Plano</span>
+              <input type="text" id="admin-edit-plano" name="plano" placeholder="Plano contratado" />
+            </label>
+            <label class="form-group">
+              <span>Status</span>
+              <input type="text" id="admin-edit-status" name="status" placeholder="Ativo, Aguardando, Pago..." />
+            </label>
+            <label class="form-group">
+              <span>Próxima sessão</span>
+              <input type="text" id="admin-edit-sessao" name="proximaSessao" placeholder="Data e horário" />
+            </label>
+            <label class="form-group">
+              <span>Recado do painel</span>
+              <textarea id="admin-edit-recado" name="painelMensagem" placeholder="Mensagem que o aluno verá ao entrar"></textarea>
+            </label>
+            <label class="form-group">
+              <span>Conteúdos liberados</span>
+              <textarea id="admin-edit-conteudos" name="conteudosLiberados" placeholder="Materiais, links ou instruções específicas"></textarea>
+            </label>
+            <div class="admin-actions">
+              <button type="submit" class="btn primary">Salvar alterações</button>
+              <button id="admin-clear-form" type="button" class="btn ghost">Limpar seleção</button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
 
@@ -196,6 +280,32 @@
         <p class="form-note">A API roda localmente (porta 4000 por padrão). Para uso público, publique o back-end e atualize o endpoint do front-end.</p>
       </div>
     </section>
+    <section id="cadastro" class="section login">
+      <div class="section-header">
+        <p class="tag">Cadastro rápido</p>
+        <h2>Crie seu acesso em poucos segundos</h2>
+        <p class="description">Envie seus dados para liberar um usuário e receber o painel de materiais e sessões.</p>
+      </div>
+      <div class="form-card">
+        <form id="register-form" class="form-grid">
+          <div class="form-group">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome" placeholder="Seu nome" required />
+          </div>
+          <div class="form-group">
+            <label for="email-cadastro">E-mail</label>
+            <input type="email" id="email-cadastro" name="email" placeholder="seu@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="senha-cadastro">Senha</label>
+            <input type="password" id="senha-cadastro" name="senha" placeholder="Crie uma senha" required />
+          </div>
+          <button type="submit" class="btn primary full" data-loading="Cadastrando...">Cadastrar e liberar acesso</button>
+          <p id="register-feedback" class="form-feedback">Seu acesso é criado e validado pelo back-end.</p>
+        </form>
+        <p class="form-note">O e-mail deve ser o mesmo utilizado nos atendimentos para vinculamos seu plano automaticamente.</p>
+      </div>
+    </section>
     <section id="area-aluno" class="section student-area hidden" aria-live="polite">
       <div class="section-header">
         <p class="tag">Painel do aluno</p>
@@ -236,6 +346,22 @@
             <li>Correções: <span class="status status-warning">Em revisão (48h)</span></li>
             <li>Próximo passo: enviar slides de apresentação</li>
           </ul>
+        </article>
+        <article class="card dashboard">
+          <div class="card-header">
+            <span class="pill">Seus dados</span>
+            <strong id="usuario-nome">—</strong>
+          </div>
+          <ul>
+            <li><strong>E-mail:</strong> <span id="usuario-email">—</span></li>
+            <li><strong>Área:</strong> <span id="usuario-area">—</span></li>
+            <li><strong>Plano:</strong> <span id="usuario-plano">—</span></li>
+            <li><strong>Status de pagamento:</strong> <span id="usuario-status" class="status status-warning">Aguardando</span></li>
+            <li><strong>Recado do admin:</strong> <span id="usuario-recado">—</span></li>
+            <li><strong>Conteúdos liberados:</strong> <span id="usuario-conteudos">—</span></li>
+          </ul>
+          <button id="refresh-dashboard" class="btn ghost full" type="button">Sincronizar com o back-end</button>
+          <p id="dashboard-feedback" class="form-feedback">Para ver dados reais, faça login ou cadastre-se.</p>
         </article>
       </div>
     </section>
@@ -400,6 +526,8 @@
 
     const loginForm = document.querySelector('#login-form');
     const loginFeedback = document.querySelector('#login-feedback');
+    const registerForm = document.querySelector('#register-form');
+    const registerFeedback = document.querySelector('#register-feedback');
     const studentArea = document.querySelector('#area-aluno');
     const proximaSessao = document.querySelector('#proxima-sessao');
     const authTabs = document.querySelectorAll('.auth-tab');
@@ -459,6 +587,50 @@
         }
       }
     };
+
+    function saveUserProfile(profile) {
+      if (!profile) return;
+      try {
+        localStorage.setItem(profileKey, JSON.stringify(profile));
+      } catch (error) {
+        console.warn('Não foi possível salvar o perfil localmente.', error);
+      }
+    }
+
+    function saveRememberedLogin(credentials) {
+      if (!credentials?.email || !credentials?.senha) return;
+      try {
+        localStorage.setItem(rememberLoginKey, JSON.stringify(credentials));
+      } catch (error) {
+        console.warn('Não foi possível armazenar as credenciais para login automático.', error);
+      }
+    }
+
+    function getRememberedLogin() {
+      try {
+        const raw = localStorage.getItem(rememberLoginKey);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function redirectToRestricted() {
+      window.location.href = 'restricted.html';
+    }
+
+    function toggleButtonLoading(button, isLoading) {
+      if (!button) return;
+      const loadingText = button.dataset.loading;
+      if (isLoading) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText || button.textContent;
+        button.disabled = true;
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+      }
+    }
 
     function showStudentArea(userName) {
       if (!studentArea || !proximaSessao) return;
@@ -671,6 +843,90 @@
 
     setMode('login');
     loadSession();
+        const match = demoAccounts.find(account => account.email === email && account.senha === password);
+
+        if (match) {
+          upsertUser(match);
+          setCurrentUser(match.email);
+          const demoProfile = { ...match };
+          saveRememberedLogin({ email, senha: password });
+          persistPasswordForUser(email, password);
+          handleAuthSuccess({ user: demoProfile, token: 'demo-token' }, loginFeedback, 'Login validado! Redirecionando para sua área restrita.');
+          return;
+        }
+
+        toggleButtonLoading(loginForm.querySelector('button'), true);
+
+        apiRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        })
+          .then(data => {
+            const profileWithPassword = { ...data.user, senha: password };
+            persistPasswordForUser(email, password);
+            saveRememberedLogin({ email, senha: password });
+            handleAuthSuccess({ ...data, user: profileWithPassword }, loginFeedback, 'Login aprovado pelo back-end. Painel liberado!');
+          })
+          .catch(error => {
+            loginFeedback.textContent = error?.message || 'Credenciais não reconhecidas. Utilize um login demonstrativo ou peça acesso pelo WhatsApp.';
+            loginFeedback.className = 'form-feedback error';
+            if (studentArea) studentArea.classList.add('hidden');
+          })
+          .finally(() => toggleButtonLoading(loginForm.querySelector('button'), false));
+      });
+    }
+
+    if (registerForm && registerFeedback) {
+      registerForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const formData = new FormData(registerForm);
+        const nome = formData.get('nome')?.toString().trim();
+        const email = formData.get('email')?.toString().trim();
+        const senha = formData.get('senha')?.toString().trim();
+
+        if (!nome || !email || !senha) {
+          registerFeedback.textContent = 'Preencha todos os campos para criar seu acesso.';
+          registerFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        toggleButtonLoading(registerForm.querySelector('button'), true);
+        apiRequest('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ nome, email, senha }),
+        })
+          .then(data => {
+            registerFeedback.textContent = 'Cadastro criado e autorizado! Você já pode acessar o painel.';
+            registerFeedback.className = 'form-feedback success';
+            const profileWithPassword = { ...data.user, senha };
+            persistPasswordForUser(email, senha);
+            saveRememberedLogin({ email, senha });
+            handleAuthSuccess({ ...data, user: profileWithPassword }, registerFeedback, 'Cadastro criado e autorizado! Você já pode acessar o painel.');
+          })
+          .catch(error => {
+            registerFeedback.textContent = error?.message || 'Não foi possível criar seu usuário agora. Tente novamente.';
+            registerFeedback.className = 'form-feedback error';
+          })
+          .finally(() => toggleButtonLoading(registerForm.querySelector('button'), false));
+      });
+    }
+
+    if (refreshButton) {
+      refreshButton.addEventListener('click', () => {
+        toggleButtonLoading(refreshButton, true);
+        fetchMemberData().finally(() => toggleButtonLoading(refreshButton, false));
+      });
+    }
+
+    preloadRememberedLogin();
+    resumeAdminPanel();
+
+
+    const storedToken = localStorage.getItem(tokenKey);
+    if (storedToken) {
+      fetchMemberData();
+    }
+
   </script>
 </body>
 </html>
