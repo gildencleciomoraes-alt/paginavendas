@@ -27,7 +27,6 @@ Alternativa: envie a pasta para serviços como Netlify ou Vercel, escolhendo o d
 
 ## Login de usuários
 O formulário de login agora consome uma API simples inclusa no projeto (porta padrão 4000). Ela permite criar usuários e fazer login localmente, salvando o token JWT no `localStorage`, liberando o painel na landing e redirecionando para a página dedicada `area-aluno.html`.
-
 ### Como rodar a API local (SQLite)
 1. Instale dependências na pasta `api`:
    ```bash

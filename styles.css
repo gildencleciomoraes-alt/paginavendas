@@ -497,6 +497,7 @@ a {
   cursor: not-allowed;
 }
 
+
 .session-status {
   color: var(--muted);
   font-size: 14px;
