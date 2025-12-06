@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 </head>
-<body data-api-base="">
+<body data-api-base="" data-supabase-url="https://atgotspourufrqqnhirl.supabase.co" data-supabase-key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z290c3BvdXJ1ZnJxcW5oaXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzUzNjksImV4cCI6MjA4MDYxMTM2OX0.IJSEzMehhCT_yLxfzhFC6mrTbzWwo2svbgs3P1sHPHs">
   <header class="hero">
     <nav class="nav">
       <div class="brand">MentoriaTCC</div>
@@ -511,9 +512,8 @@
     </div>
   </footer>
 
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
     const toggles = document.querySelectorAll('.accordion-toggle');
     toggles.forEach(button => {
       button.addEventListener('click', () => {
@@ -561,6 +561,17 @@
         userPageSlug = page.slug;
         localStorage.setItem('authPage', page.slug);
       }
+      return window.location.origin;
+    }
+
+    const supabaseUrl = (document.body.dataset.supabaseUrl || '').trim();
+    const supabaseKey = (document.body.dataset.supabaseKey || '').trim();
+    const supabaseClient = supabaseUrl && supabaseKey && window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+
+    const apiBaseAttr = (document.body.dataset.apiBase || '').trim();
+    const apiBase = resolveApiBase();
+    const useSupabase = Boolean(supabaseClient);
+    const useMockApi = !useSupabase && (!apiBaseAttr || apiBaseAttr.toLowerCase() === 'mock');
 
       if (user) {
         sessionStatus.textContent = `Sessão ativa: ${user.name} (${user.email})`;
@@ -709,17 +720,179 @@
       return apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
     }
 
-    async function loginWithProvider({ email, password }) {
-      if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw new Error(error.message || 'Erro ao fazer login no Supabase.');
-        const user = mapSupabaseUser(data.user);
-        authToken = data.session?.access_token || null;
-        const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
-        return { user, token: authToken, page };
+    function mapSupabaseUser(user) {
+      if (!user) return null;
+      const meta = user.user_metadata || {};
+
+      return {
+        nome: meta.nome || meta.name || user.email,
+        email: user.email,
+        area: meta.area || 'Aluno',
+        plano: meta.plano || 'Mentoria Essencial',
+        status: meta.status || 'Ativo',
+        proximaSessao: meta.proximaSessao || 'A combinar com o mentor.',
+        painelMensagem: meta.painelMensagem || 'Cadastro realizado. Aguarde confirmação do time.',
+        conteudosLiberados: meta.conteudosLiberados || 'Checklist inicial liberado.',
+      };
+    }
+
+    async function supabaseApiRequest(path, options = {}) {
+      const lowerPath = path.toLowerCase();
+      const body = options.body ? JSON.parse(options.body) : null;
+
+      if (lowerPath === '/api/auth/register') {
+        if (!body?.email || !body?.senha || !body?.nome) {
+          throw new Error('Preencha nome, e-mail e senha para continuar.');
+        }
+
+        const { data, error } = await supabaseClient.auth.signUp({
+          email: body.email,
+          password: body.senha,
+          options: {
+            data: {
+              nome: body.nome,
+              area: 'Aluno',
+              plano: 'Mentoria Essencial',
+              status: 'Ativo',
+              proximaSessao: 'A combinar com o mentor.',
+              painelMensagem: 'Cadastro criado. Aguarde liberação.',
+              conteudosLiberados: 'Checklist inicial liberado.',
+            },
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const token = data.session?.access_token || null;
+        const profile = mapSupabaseUser(data.user);
+        return { token, user: profile };
+      }
+
+      if (lowerPath === '/api/auth/login') {
+        if (!body?.email || !body?.password) {
+          throw new Error('Informe e-mail e senha para continuar.');
+        }
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: body.email,
+          password: body.password,
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const token = data.session?.access_token || null;
+        const profile = mapSupabaseUser(data.user);
+        return { token, user: profile };
+      }
+
+      if (lowerPath === '/api/members/me') {
+        const { data, error } = await supabaseClient.auth.getUser();
+        if (error) {
+          throw new Error(error.message || 'Não autorizado.');
+        }
+
+        if (!data?.user) {
+          throw new Error('Não autorizado. Faça login ou cadastre-se.');
+        }
+
+        return mapSupabaseUser(data.user);
+      }
+
+      throw new Error('Endpoint não suportado para Supabase.');
+    }
+
+    function mockApiRequest(path, options = {}) {
+      seedDatabase();
+      const body = parseJsonBody(options);
+      const users = getStoredUsers();
+      const lowerPath = path.toLowerCase();
+
+      if (lowerPath === '/api/auth/register') {
+        if (!body?.nome || !body?.email || !body?.senha) {
+          return Promise.reject(new Error('Preencha todos os campos para continuar.'));
+        }
+
+        const alreadyExists = users.some(user => user.email.toLowerCase() === body.email.toLowerCase());
+        if (alreadyExists) {
+          return Promise.reject(new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.'));
+        }
+
+        const newUser = {
+          nome: body.nome,
+          email: body.email,
+          senha: body.senha,
+          area: 'Aluno',
+          plano: 'Mentoria Essencial',
+          status: 'Ativo',
+          proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
+          painelMensagem: 'Seu cadastro foi criado com sucesso. Aguarde contato para próximos passos.',
+          conteudosLiberados: 'Checklist inicial e materiais básicos liberados.',
+        };
+
+        upsertUser(newUser);
+        setCurrentUser(newUser.email);
+        localStorage.setItem(tokenKey, 'mock-token');
+
+        return Promise.resolve({ token: 'mock-token', user: newUser });
+      }
+
+      if (lowerPath === '/api/auth/login') {
+        if (!body?.email || !body?.password) {
+          return Promise.reject(new Error('Informe e-mail e senha para continuar.'));
+        }
+
+        const foundUser = users.find(user => user.email.toLowerCase() === body.email.toLowerCase());
+        if (!foundUser || foundUser.senha !== body.password) {
+          return Promise.reject(new Error('Credenciais não encontradas no banco local.'));
+        }
+
+        setCurrentUser(foundUser.email);
+        localStorage.setItem(tokenKey, 'mock-token');
+
+        return Promise.resolve({ token: 'mock-token', user: foundUser });
+      }
+
+      if (lowerPath === '/api/members/me') {
+        const token = localStorage.getItem(tokenKey);
+        if (!token) {
+          return Promise.reject(new Error('Não autorizado. Faça login ou cadastre-se.'));
+        }
+
+        const currentEmail = getCurrentUserEmail();
+        const profile = users.find(user => user.email === currentEmail);
+
+        if (!profile) {
+          return Promise.reject(new Error('Não autorizado. Faça login ou cadastre-se.'));
+        }
+
+        return Promise.resolve(profile);
       }
       return apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     }
+    async function apiRequest(path, options = {}) {
+      if (useSupabase) {
+        return supabaseApiRequest(path, options);
+      }
+
+      if (useMockApi) {
+        return mockApiRequest(path, options);
+      }
+
+      const token = localStorage.getItem(tokenKey);
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      let response;
 
     async function loadSession() {
       try {
@@ -927,6 +1100,7 @@
       fetchMemberData();
     }
 
+    });
   </script>
 </body>
 </html>
