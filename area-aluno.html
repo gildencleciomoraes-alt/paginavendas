@@ -63,6 +63,7 @@
       <div class="brand">MentoriaTCC</div>
       <div class="nav-actions">
         <a href="index.html#login" class="btn ghost">Voltar</a>
+        <a id="btn-pagina" href="#" class="btn ghost" aria-disabled="true">Minha página</a>
         <button id="sair" class="btn ghost">Sair</button>
       </div>
     </nav>
@@ -137,8 +138,10 @@
     const btnSair = document.querySelector('#sair');
     const btnConfirmar = document.querySelector('#confirmar-sessao');
     const btnEnviar = document.querySelector('#enviar-novo');
+    const btnPagina = document.querySelector('#btn-pagina');
 
     let authToken = localStorage.getItem('authToken');
+    let userPageSlug = localStorage.getItem('authPage');
 
     const apiRequest = async (path, options = {}) => {
       if (!API_BASE) throw new Error('Configure AUTH_API_BASE ou Supabase.');
@@ -171,7 +174,12 @@
           const user = mapSupabaseUser(data.session.user);
           authToken = data.session.access_token;
           localStorage.setItem('authToken', authToken);
-          localStorage.setItem('authUser', JSON.stringify(user));
+          const page = userPageSlug ? { slug: userPageSlug } : null;
+          localStorage.setItem('authUser', JSON.stringify({ ...user, page }));
+          if (page?.slug) {
+            btnPagina?.setAttribute('href', `pagina.html?slug=${encodeURIComponent(page.slug)}`);
+            btnPagina?.removeAttribute('aria-disabled');
+          }
           saudacao.textContent = `Bem-vindo(a), ${user.name}`;
           statusSessao.textContent = `Sessão ativa para ${user.email} (Supabase)`;
           infoSessao.textContent = '12/09 • 19h (online)';
@@ -182,11 +190,18 @@
           throw new Error('Nenhum token encontrado. Faça login na página principal.');
         }
 
-        const { user } = await apiRequest('/auth/me');
+        const { user, page } = await apiRequest('/auth/me');
+        const finalPage = page || user.page || (userPageSlug ? { slug: userPageSlug } : null);
+        if (finalPage?.slug) {
+          userPageSlug = finalPage.slug;
+          localStorage.setItem('authPage', finalPage.slug);
+          btnPagina?.setAttribute('href', `pagina.html?slug=${encodeURIComponent(finalPage.slug)}`);
+          btnPagina?.removeAttribute('aria-disabled');
+        }
         saudacao.textContent = `Bem-vindo(a), ${user.name}`;
         statusSessao.textContent = `Sessão ativa para ${user.email}`;
         infoSessao.textContent = '12/09 • 19h (online)';
-        localStorage.setItem('authUser', JSON.stringify(user));
+        localStorage.setItem('authUser', JSON.stringify({ ...user, page: finalPage }));
       } catch (err) {
         alerta.hidden = false;
         statusSessao.textContent = err.message;
@@ -202,6 +217,7 @@
       authToken = null;
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
+      localStorage.removeItem('authPage');
       window.location.href = 'index.html#login';
     });
 
