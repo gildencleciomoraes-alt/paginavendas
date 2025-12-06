@@ -4,6 +4,7 @@ Página estática para divulgar serviços de consultoria de TCC, com seções de
 
 ## Estrutura
 - `index.html`: marcação principal da landing page e script do acordeão/login.
+
 - `styles.css`: estilos globais e responsivos.
 
 ## Visualizar

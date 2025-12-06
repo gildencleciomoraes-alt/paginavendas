@@ -501,7 +501,6 @@ a {
   color: var(--muted);
   font-size: 13px;
 }
-
 .footer {
   padding: 32px clamp(16px, 4vw, 48px) 48px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
