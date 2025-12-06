@@ -490,6 +490,14 @@ a {
   margin-top: 12px;
 }
 
+.session-row .btn.disabled,
+.session-row .btn[aria-disabled="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+
 .session-status {
   color: var(--muted);
   font-size: 14px;

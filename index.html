@@ -187,6 +187,7 @@
         </form>
         <div class="session-row">
           <button type="button" id="logout-btn" class="btn ghost" disabled>Encerrar sessão</button>
+          <a id="painel-btn" class="btn primary" href="area-aluno.html" aria-disabled="true">Ir para o painel</a>
           <span id="session-status" class="session-status">Nenhum usuário autenticado.</span>
         </div>
         <p class="form-note">A API roda localmente (porta 4000 por padrão). Para uso público, publique o back-end e atualize o endpoint do front-end.</p>
@@ -400,7 +401,7 @@
     const nameGroup = document.querySelector('.auth-name');
     const sessionStatus = document.querySelector('#session-status');
     const logoutBtn = document.querySelector('#logout-btn');
-
+    const painelBtn = document.querySelector('#painel-btn');
     const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
     let authMode = 'login';
     let authToken = localStorage.getItem('authToken');
@@ -409,9 +410,13 @@
       if (user) {
         sessionStatus.textContent = `Sessão ativa: ${user.name} (${user.email})`;
         logoutBtn.removeAttribute('disabled');
+        painelBtn?.removeAttribute('aria-disabled');
+        painelBtn?.classList.remove('disabled');
       } else {
         sessionStatus.textContent = 'Nenhum usuário autenticado.';
         logoutBtn.setAttribute('disabled', 'true');
+        painelBtn?.setAttribute('aria-disabled', 'true');
+        painelBtn?.classList.add('disabled');
       }
     };
 
@@ -523,6 +528,9 @@
             : 'Login validado com sucesso.';
           loginFeedback.className = 'form-feedback success';
           showStudentArea(payload.user.name);
+          setTimeout(() => {
+            window.location.href = 'area-aluno.html';
+          }, 600);
         } catch (error) {
           loginFeedback.textContent = error.message;
           loginFeedback.className = 'form-feedback error';

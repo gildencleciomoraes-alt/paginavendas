@@ -26,8 +26,7 @@ Abra `index.html` em qualquer navegador ou use um servidor local simples (por ex
 Alternativa: envie a pasta para serviços como Netlify ou Vercel, escolhendo o diretório de publicação como a raiz do projeto e compartilhando o link gerado.
 
 ## Login de usuários
-O formulário de login agora consome uma API simples inclusa no projeto (porta padrão 4000). Ela permite criar usuários e fazer login localmente, salvando o token JWT no `localStorage` e liberando o painel.
-
+O formulário de login agora consome uma API simples inclusa no projeto (porta padrão 4000). Ela permite criar usuários e fazer login localmente, salvando o token JWT no `localStorage`, liberando o painel na landing e redirecionando para a página dedicada `area-aluno.html`.
 ### Como rodar a API local (SQLite)
 1. Instale dependências na pasta `api`:
    ```bash
@@ -44,7 +43,7 @@ O formulário de login agora consome uma API simples inclusa no projeto (porta p
    ```bash
    npm run dev
    ```
-4. Acesse a landing page (por exemplo, `python -m http.server` na raiz) e use o formulário para **Criar acesso básico** (registro) ou **Já tenho acesso** (login). O token será guardado e a sessão ficará ativa até você clicar em “Encerrar sessão”.
+4. Acesse a landing page (por exemplo, `python -m http.server` na raiz) e use o formulário para **Criar acesso básico** (registro) ou **Já tenho acesso** (login). O token será guardado, a sessão ficará ativa até você clicar em “Encerrar sessão” e você será levado ao `area-aluno.html` para ver conteúdos exclusivos.
 
 ### Publicar a API
 - Sugerido para ambiente de teste: Render, Railway, Fly.io ou VPS. Suba o conteúdo da pasta `api`, configure `PORT`, `JWT_SECRET` e `DB_PATH` (ou string de conexão para outro banco), instale dependências e exponha a rota.
