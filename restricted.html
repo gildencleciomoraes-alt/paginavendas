@@ -43,6 +43,7 @@
           </div>
           <ul>
             <li><strong>E-mail:</strong> <span id="restricted-email">—</span></li>
+            <li><strong>Área:</strong> <span id="restricted-area">—</span></li>
             <li><strong>Plano:</strong> <span id="restricted-plan">—</span></li>
             <li><strong>Status:</strong> <span id="restricted-status" class="status status-warning">—</span></li>
           </ul>
@@ -94,6 +95,7 @@
       description.textContent = 'Essas informações são exclusivas do seu usuário.';
       document.getElementById('restricted-name').textContent = profile.nome || profile.name || 'Aluno';
       document.getElementById('restricted-email').textContent = profile.email || '—';
+      document.getElementById('restricted-area').textContent = profile.area || 'Aluno';
       document.getElementById('restricted-plan').textContent = profile.plano || profile.plan || 'Em revisão';
       const statusEl = document.getElementById('restricted-status');
       statusEl.textContent = profile.statusPagamento || profile.status || 'Ativo';
