@@ -15,6 +15,7 @@
       <div class="brand">MentoriaTCC</div>
       <div class="nav-actions">
         <a href="#contato" class="btn ghost">Fale com a gente</a>
+        <a href="#login" class="btn ghost">Área do aluno</a>
         <a href="#planos" class="btn primary">Agendar sessão</a>
       </div>
     </nav>
@@ -157,7 +158,28 @@
         </div>
       </div>
     </section>
-
+    <section id="login" class="section login">
+      <div class="section-header">
+        <p class="tag">Área do aluno</p>
+        <h2>Acesse suas mentorias e materiais</h2>
+        <p class="description">Faça login para acompanhar suas sessões, baixar modelos e enviar capítulos para revisão.</p>
+      </div>
+      <div class="form-card">
+        <form id="login-form" class="form-grid">
+          <div class="form-group">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" name="email" placeholder="seu@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha" placeholder="••••••••" required />
+          </div>
+          <button type="submit" class="btn primary full">Entrar</button>
+          <p id="login-feedback" class="form-feedback">Área demonstrativa para alunos habilitados.</p>
+        </form>
+        <p class="form-note">Ainda não tem acesso? Fale com a equipe no <a href="https://wa.me/5574988321232?text=Quero%20acesso%20%C3%A0%20%C3%A1rea%20do%20aluno" target="_blank" rel="noopener">WhatsApp</a> para liberar seu login.</p>
+      </div>
+    </section>
     <section id="planos" class="section pricing">
       <div class="section-header">
         <p class="tag">Planos</p>
@@ -289,7 +311,6 @@
             <span class="contact-note">Atendimento direto e rápido pelo WhatsApp: +55 74 98832-1232</span>
           </div>
         </div>
-
       </div>
     </section>
   </main>
@@ -315,6 +336,26 @@
         content.style.maxHeight = isOpen ? null : `${content.scrollHeight}px`;
       });
     });
+    const loginForm = document.querySelector('#login-form');
+    const loginFeedback = document.querySelector('#login-feedback');
+    if (loginForm && loginFeedback) {
+      loginForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const formData = new FormData(loginForm);
+        const email = formData.get('email')?.toString().trim();
+        const password = formData.get('senha')?.toString().trim();
+
+        if (!email || !password) {
+          loginFeedback.textContent = 'Preencha e-mail e senha para continuar.';
+          loginFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        loginFeedback.textContent = 'Login demonstrativo: o acesso definitivo é liberado pela equipe de suporte.';
+        loginFeedback.className = 'form-feedback success';
+      });
+    }
+
   </script>
 </body>
 </html>
