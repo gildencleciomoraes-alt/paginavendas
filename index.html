@@ -384,7 +384,9 @@
     </div>
   </footer>
 
-  <script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
     const toggles = document.querySelectorAll('.accordion-toggle');
     toggles.forEach(button => {
       button.addEventListener('click', () => {
@@ -405,7 +407,12 @@
     const logoutBtn = document.querySelector('#logout-btn');
     const painelBtn = document.querySelector('#painel-btn');
 
-    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+    const SUPABASE_URL = window.SUPABASE_URL || 'https://atgotspourufrqqnhirl.supabase.co';
+    const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z290c3BvdXJ1ZnJxcW5oaXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzUzNjksImV4cCI6MjA4MDYxMTM2OX0.IJSEzMehhCT_yLxfzhFC6mrTbzWwo2svbgs3P1sHPHs';
+    const hasSupabase = Boolean(SUPABASE_URL && SUPABASE_KEY);
+    const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    const API_BASE = window.AUTH_API_BASE || (!hasSupabase ? 'http://localhost:4000' : null);
+
     let authMode = 'login';
     let authToken = localStorage.getItem('authToken');
 
@@ -431,6 +438,7 @@
     }
 
     async function apiRequest(path, options = {}) {
+      if (!API_BASE) throw new Error('Configure AUTH_API_BASE ou Supabase.');
       const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
@@ -441,6 +449,95 @@
         throw new Error(message);
       }
       return data;
+    }
+
+    async function supabaseSession() {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return data.session;
+    }
+
+    async function supabaseUser() {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data.user;
+    }
+
+    function mapSupabaseUser(user) {
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário'
+      };
+    }
+
+    async function registerWithProvider({ name, email, password }) {
+      if (supabase) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } }
+        });
+        if (error) throw new Error(error.message || 'Erro ao registrar no Supabase.');
+        const user = mapSupabaseUser(data.user);
+        authToken = data.session?.access_token || null;
+        if (authToken) localStorage.setItem('authToken', authToken);
+        localStorage.setItem('authUser', JSON.stringify(user));
+        return { user, token: authToken };
+      }
+      return apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+    }
+
+    async function loginWithProvider({ email, password }) {
+      if (supabase) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw new Error(error.message || 'Erro ao fazer login no Supabase.');
+        const user = mapSupabaseUser(data.user);
+        authToken = data.session?.access_token || null;
+        if (authToken) localStorage.setItem('authToken', authToken);
+        localStorage.setItem('authUser', JSON.stringify(user));
+        return { user, token: authToken };
+      }
+      return apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    }
+
+    async function loadSession() {
+      try {
+        if (supabase) {
+          const session = await supabaseSession();
+          if (!session) throw new Error('Nenhuma sessão ativa.');
+          const user = mapSupabaseUser(session.user) || mapSupabaseUser(await supabaseUser());
+          authToken = session.access_token;
+          if (authToken) localStorage.setItem('authToken', authToken);
+          localStorage.setItem('authUser', JSON.stringify(user));
+          updateSessionStatus(user);
+          loginFeedback.textContent = 'Sessão validada no Supabase.';
+          loginFeedback.className = 'form-feedback success';
+          showStudentArea(user.name);
+          return;
+        }
+
+        if (!authToken) {
+          updateSessionStatus(null);
+          if (studentArea) studentArea.classList.add('hidden');
+          return;
+        }
+
+        const { user } = await apiRequest('/auth/me');
+        updateSessionStatus(user);
+        loginFeedback.textContent = 'Sessão válida.';
+        loginFeedback.className = 'form-feedback success';
+        showStudentArea(user.name);
+      } catch (err) {
+        console.error(err);
+        authToken = null;
+        localStorage.removeItem('authToken');
+        updateSessionStatus(null);
+        if (studentArea) studentArea.classList.add('hidden');
+      }
     }
 
     function setMode(mode) {
@@ -456,29 +553,9 @@
         passwordField.setAttribute('autocomplete', isRegister ? 'new-password' : 'current-password');
       }
       loginFeedback.textContent = isRegister
-        ? 'Crie um acesso local. Os dados ficam no SQLite do servidor.'
+        ? 'Crie um acesso integrado ao Supabase (PostgreSQL) ou API local.'
         : 'Faça login usando um usuário já cadastrado.';
       loginFeedback.className = 'form-feedback';
-    }
-
-    async function loadSession() {
-      if (!authToken) {
-        updateSessionStatus(null);
-        if (studentArea) studentArea.classList.add('hidden');
-        return;
-      }
-      try {
-        const { user } = await apiRequest('/auth/me');
-        updateSessionStatus(user);
-        loginFeedback.textContent = 'Sessão válida.';
-        loginFeedback.className = 'form-feedback success';
-        showStudentArea(user.name);
-      } catch (err) {
-        console.error(err);
-        authToken = null;
-        localStorage.removeItem('authToken');
-        updateSessionStatus(null);
-      }
     }
 
     if (authTabs.length) {
@@ -488,9 +565,15 @@
     }
 
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          if (supabase) await supabase.auth.signOut();
+        } catch (error) {
+          console.error('Erro ao sair do Supabase', error);
+        }
         authToken = null;
         localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
         updateSessionStatus(null);
         loginFeedback.textContent = 'Sessão encerrada.';
         loginFeedback.className = 'form-feedback';
@@ -520,11 +603,11 @@
 
         try {
           const payload = authMode === 'register'
-            ? await apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) })
-            : await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+            ? await registerWithProvider({ name, email, password })
+            : await loginWithProvider({ email, password });
 
           authToken = payload.token;
-          localStorage.setItem('authToken', authToken);
+          if (authToken) localStorage.setItem('authToken', authToken);
           updateSessionStatus(payload.user);
           loginFeedback.textContent = authMode === 'register'
             ? 'Conta criada e sessão iniciada.'

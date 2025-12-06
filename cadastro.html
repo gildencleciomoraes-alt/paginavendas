@@ -87,13 +87,21 @@
     </div>
   </header>
 
-  <script>
-    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const SUPABASE_URL = window.SUPABASE_URL || 'https://atgotspourufrqqnhirl.supabase.co';
+    const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z290c3BvdXJ1ZnJxcW5oaXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzUzNjksImV4cCI6MjA4MDYxMTM2OX0.IJSEzMehhCT_yLxfzhFC6mrTbzWwo2svbgs3P1sHPHs';
+    const hasSupabase = Boolean(SUPABASE_URL && SUPABASE_KEY);
+    const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    const API_BASE = window.AUTH_API_BASE || (!hasSupabase ? 'http://localhost:4000' : null);
+
     const form = document.querySelector('#signup-form');
     const feedback = document.querySelector('#signup-feedback');
     let authToken = localStorage.getItem('authToken');
 
     const apiRequest = async (path, options = {}) => {
+      if (!API_BASE) throw new Error('Configure AUTH_API_BASE ou Supabase.');
       const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
       const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
@@ -104,7 +112,36 @@
       return data;
     };
 
-    form?.addEventListener('submit', async (event) => {
+    function mapSupabaseUser(user) {
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário'
+      };
+    }
+
+    const registerUser = async ({ name, email, password }) => {
+      if (supabase) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } }
+        });
+        if (error) throw new Error(error.message || 'Erro ao registrar no Supabase.');
+        const user = mapSupabaseUser(data.user);
+        authToken = data.session?.access_token || null;
+        if (authToken) localStorage.setItem('authToken', authToken);
+        localStorage.setItem('authUser', JSON.stringify(user));
+        return { user };
+      }
+      return apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password })
+      });
+    };
+
+    form?.addEventListener('submit', async event => {
       event.preventDefault();
       const formData = new FormData(form);
       const name = formData.get('nome')?.toString().trim();
@@ -128,13 +165,8 @@
       }
 
       try {
-        const payload = await apiRequest('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({ name, email, password })
-        });
-        authToken = payload.token;
-        localStorage.setItem('authToken', authToken);
-        localStorage.setItem('authUser', JSON.stringify(payload.user));
+        const payload = await registerUser({ name, email, password });
+        if (!payload.user) throw new Error('Não foi possível registrar o usuário.');
         feedback.textContent = 'Conta criada! Redirecionando para o painel...';
         feedback.className = 'form-feedback success';
         setTimeout(() => {
