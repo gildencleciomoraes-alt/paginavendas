@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Página do Aluno | MentoriaTCC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { background: var(--surface); }
+    .page-wrapper { max-width: 960px; margin: 32px auto 64px; padding: 0 16px; }
+    .page-meta { display: grid; gap: 12px; margin-top: 16px; color: var(--muted); }
+    .pill.success { background: rgba(34, 197, 94, 0.15); color: #bbf7d0; }
+  </style>
+</head>
+<body>
+  <header class="hero" style="padding-bottom:32px;">
+    <nav class="nav">
+      <div class="brand">MentoriaTCC</div>
+      <div class="nav-actions">
+        <a class="btn ghost" href="index.html#login">Área do aluno</a>
+      </div>
+    </nav>
+    <div class="section-header" style="margin-bottom:12px;">
+      <p class="tag">Página personalizada</p>
+      <h1 id="page-title">Carregando...</h1>
+      <p id="page-owner" class="description">Buscando dados do aluno.</p>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+    <div class="form-card" id="page-card">
+      <div class="card-header">
+        <span class="pill success">Ativa</span>
+        <strong id="page-slug">—</strong>
+      </div>
+      <p id="page-created" class="form-note">Criada em —</p>
+      <div class="page-meta">
+        <p><strong>Aluno:</strong> <span id="page-name">—</span></p>
+        <p><strong>Contato:</strong> <span id="page-email">—</span></p>
+      </div>
+      <p class="form-feedback" id="page-feedback">Conteúdo carregado via API local.</p>
+    </div>
+  </main>
+
+  <script type="module">
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('slug');
+    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+
+    const pageTitle = document.querySelector('#page-title');
+    const pageOwner = document.querySelector('#page-owner');
+    const pageSlug = document.querySelector('#page-slug');
+    const pageCreated = document.querySelector('#page-created');
+    const pageName = document.querySelector('#page-name');
+    const pageEmail = document.querySelector('#page-email');
+    const feedback = document.querySelector('#page-feedback');
+
+    async function loadPage() {
+      if (!slug) {
+        feedback.textContent = 'Slug não informado.';
+        feedback.className = 'form-feedback error';
+        return;
+      }
+
+      try {
+        feedback.textContent = 'Carregando informações...';
+        feedback.className = 'form-feedback';
+        const response = await fetch(`${API_BASE}/pages/${encodeURIComponent(slug)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Página não encontrada.');
+        const page = data.page;
+        pageTitle.textContent = page.title || 'Página do aluno';
+        pageOwner.textContent = `Página permanente para ${page.name}.`;
+        pageSlug.textContent = `/${page.slug}`;
+        pageCreated.textContent = `Criada em ${new Date(page.created_at).toLocaleString('pt-BR')}`;
+        pageName.textContent = page.name;
+        pageEmail.textContent = page.email;
+        feedback.textContent = 'Página carregada e pronta para ser compartilhada.';
+        feedback.className = 'form-feedback success';
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.className = 'form-feedback error';
+        pageTitle.textContent = 'Erro ao carregar página';
+        pageOwner.textContent = 'Verifique se a página existe e tente novamente.';
+      }
+    }
+
+    loadPage();
+  </script>
+</body>
+</html>

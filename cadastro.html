@@ -99,6 +99,16 @@
     const form = document.querySelector('#signup-form');
     const feedback = document.querySelector('#signup-feedback');
     let authToken = localStorage.getItem('authToken');
+    let userPageSlug = localStorage.getItem('authPage');
+
+    const slugify = text =>
+      text
+        ?.normalize('NFD')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase();
 
     const apiRequest = async (path, options = {}) => {
       if (!API_BASE) throw new Error('Configure AUTH_API_BASE ou Supabase.');
@@ -121,6 +131,25 @@
       };
     }
 
+    function derivePage(user) {
+      if (!user) return null;
+      const base = slugify(user.name || user.email?.split('@')[0] || 'usuario') || 'usuario';
+      const suffix = user.id ? user.id.toString().slice(0, 6) : Date.now();
+      const slug = `${base}-${suffix}`;
+      return { slug, title: 'Página personalizada do aluno' };
+    }
+
+    function persistSession({ user, token, page }) {
+      if (token) localStorage.setItem('authToken', token);
+      const finalPage = page || user?.page || (user?.email ? derivePage(user) : null);
+      if (finalPage?.slug) {
+        userPageSlug = finalPage.slug;
+        localStorage.setItem('authPage', finalPage.slug);
+      }
+      if (user) localStorage.setItem('authUser', JSON.stringify({ ...user, page: finalPage }));
+      return finalPage;
+    }
+
     const registerUser = async ({ name, email, password }) => {
       if (supabase) {
         const { data, error } = await supabase.auth.signUp({
@@ -131,9 +160,8 @@
         if (error) throw new Error(error.message || 'Erro ao registrar no Supabase.');
         const user = mapSupabaseUser(data.user);
         authToken = data.session?.access_token || null;
-        if (authToken) localStorage.setItem('authToken', authToken);
-        localStorage.setItem('authUser', JSON.stringify(user));
-        return { user };
+        const page = persistSession({ user, token: authToken, page: derivePage(user) });
+        return { user, page, token: authToken };
       }
       return apiRequest('/auth/register', {
         method: 'POST',
@@ -167,10 +195,14 @@
       try {
         const payload = await registerUser({ name, email, password });
         if (!payload.user) throw new Error('Não foi possível registrar o usuário.');
+        persistSession({ user: payload.user, token: payload.token, page: payload.page });
+        const slug = payload.page?.slug || userPageSlug;
         feedback.textContent = 'Conta criada! Redirecionando para o painel...';
         feedback.className = 'form-feedback success';
         setTimeout(() => {
-          window.location.href = 'area-aluno.html';
+          window.location.href = slug
+            ? `pagina.html?slug=${encodeURIComponent(slug)}`
+            : 'area-aluno.html';
         }, 700);
       } catch (error) {
         feedback.textContent = error.message;

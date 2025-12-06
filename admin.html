@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin | MentoriaTCC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { background: var(--surface); }
+    .admin-wrapper { max-width: 1080px; margin: 32px auto 64px; padding: 0 16px; }
+    .admin-grid { display: grid; gap: 16px; }
+    .input-row { display: flex; gap: 8px; align-items: center; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .table th, .table td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .table th { color: var(--muted); font-weight: 600; }
+    .pill.success { background: rgba(34, 197, 94, 0.15); color: #bbf7d0; }
+    .table a { color: #cdd6ff; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header class="hero" style="padding-bottom:32px;">
+    <nav class="nav">
+      <div class="brand">MentoriaTCC</div>
+      <div class="nav-actions">
+        <a href="index.html#login" class="btn ghost">Voltar</a>
+      </div>
+    </nav>
+    <div class="section-header" style="margin-bottom:12px;">
+      <p class="tag">Administração</p>
+      <h1>Painel do administrador</h1>
+      <p class="description">Use a chave de administrador para listar usuários, páginas e recriar páginas que faltem.</p>
+    </div>
+  </header>
+
+  <main class="admin-wrapper">
+    <div class="form-card">
+      <div class="form-group">
+        <label for="admin-key">Chave de administrador (X-Admin-Key)</label>
+        <div class="input-row">
+          <input type="password" id="admin-key" placeholder="Defina ADMIN_KEY na API" autocomplete="current-password" />
+          <button id="carregar" class="btn primary">Carregar usuários</button>
+        </div>
+        <p class="form-note">API padrão: http://localhost:4000 — altere com window.AUTH_API_BASE.</p>
+      </div>
+      <p id="admin-feedback" class="form-feedback">Nenhuma consulta realizada.</p>
+    </div>
+
+    <div class="form-card admin-grid">
+      <div class="card-header" style="justify-content: space-between;">
+        <div>
+          <span class="pill">Usuários</span>
+          <strong>Listagem com páginas</strong>
+        </div>
+        <button id="refresh" class="btn ghost">Atualizar</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="table" id="admin-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Página</th>
+              <th>Criado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5">Nenhum dado carregado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    const API_BASE = window.AUTH_API_BASE || 'http://localhost:4000';
+    const adminKeyInput = document.querySelector('#admin-key');
+    const feedback = document.querySelector('#admin-feedback');
+    const tableBody = document.querySelector('#admin-table tbody');
+    const loadBtn = document.querySelector('#carregar');
+    const refreshBtn = document.querySelector('#refresh');
+
+    async function fetchUsers() {
+      const key = adminKeyInput.value.trim();
+      if (!key) {
+        feedback.textContent = 'Informe a chave de administrador.';
+        feedback.className = 'form-feedback error';
+        return;
+      }
+
+      try {
+        feedback.textContent = 'Carregando usuários...';
+        feedback.className = 'form-feedback';
+        const response = await fetch(`${API_BASE}/admin/users`, {
+          headers: { 'X-Admin-Key': key }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao buscar usuários.');
+        renderTable(data.users || []);
+        feedback.textContent = `Encontrados ${data.users?.length || 0} usuários.`;
+        feedback.className = 'form-feedback success';
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.className = 'form-feedback error';
+      }
+    }
+
+    function renderTable(users) {
+      if (!users.length) {
+        tableBody.innerHTML = '<tr><td colspan="5">Nenhum usuário cadastrado ainda.</td></tr>';
+        return;
+      }
+
+      tableBody.innerHTML = users.map(user => {
+        const slug = user.slug || '';
+        const pageLink = slug
+          ? `<a href="pagina.html?slug=${encodeURIComponent(slug)}" target="_blank" rel="noopener">${slug}</a>`
+          : '<span class="pill">sem página</span>';
+        const created = new Date(user.created_at).toLocaleString('pt-BR');
+        const pageCreated = user.page_created ? new Date(user.page_created).toLocaleString('pt-BR') : '—';
+        const meta = slug ? `<span class="pill success">OK</span>` : `<button class="btn ghost" data-user="${user.id}">Gerar página</button>`;
+        return `<tr>
+          <td>${user.name}</td>
+          <td>${user.email}</td>
+          <td>${pageLink}<br/><small>Criada: ${pageCreated}</small></td>
+          <td>${created}</td>
+          <td>${meta}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function ensurePageForUser(userId) {
+      const key = adminKeyInput.value.trim();
+      if (!key) return;
+      const btn = tableBody.querySelector(`button[data-user="${userId}"]`);
+      if (btn) btn.disabled = true;
+      try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}/page`, {
+          method: 'POST',
+          headers: { 'X-Admin-Key': key }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao gerar página.');
+        feedback.textContent = `Página criada para ${data.user?.email || userId}.`;
+        feedback.className = 'form-feedback success';
+        await fetchUsers();
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.className = 'form-feedback error';
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    loadBtn?.addEventListener('click', fetchUsers);
+    refreshBtn?.addEventListener('click', fetchUsers);
+    tableBody?.addEventListener('click', event => {
+      const target = event.target;
+      if (target.matches('button[data-user]')) {
+        const id = target.getAttribute('data-user');
+        ensurePageForUser(id);
+      }
+    });
+  </script>
+</body>
+</html>

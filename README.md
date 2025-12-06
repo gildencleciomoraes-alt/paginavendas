@@ -6,6 +6,8 @@ Página estática para divulgar serviços de consultoria de TCC, com seções de
 - `index.html`: marcação principal da landing page e script do acordeão/login.
 - `styles.css`: estilos globais e responsivos.
 - `cadastro.html`: página dedicada para visitantes criarem conta (nome, e-mail e senha) e seguirem para o painel.
+- `pagina.html`: página pública permanente gerada para cada aluno (busca dados em `/pages/:slug`).
+- `admin.html`: painel para o administrador listar usuários, recriar páginas e acessar slugs.
 - `api/`: API Node/Express simples com autenticação via SQLite e JWT para testes locais.
 
 ## Visualizar
@@ -49,6 +51,7 @@ Você pode cadastrar pelo próprio `index.html` (aba **Criar acesso básico**) o
    ```bash
    PORT=4000
    JWT_SECRET=troque-este-segredo
+   ADMIN_KEY=defina-uma-chave-para-o-admin
    DB_PATH=api/data/auth.db
    ```
 3. Inicie o servidor:
@@ -56,6 +59,11 @@ Você pode cadastrar pelo próprio `index.html` (aba **Criar acesso básico**) o
    npm run dev
    ```
 4. Acesse a landing page (por exemplo, `python -m http.server` na raiz) e use o formulário para **Criar acesso básico** (registro) ou **Já tenho acesso** (login). O token será guardado, a sessão ficará ativa até você clicar em “Encerrar sessão” e você será levado ao `area-aluno.html` para ver conteúdos exclusivos.
+
+### Painel do admin e páginas permanentes
+- Ao registrar ou logar via API, um slug permanente é gerado e salvo em `user_pages`. A resposta da API inclui `{ page: { slug } }` e o front-end salva em `localStorage`.
+- A rota pública `GET /pages/:slug` retorna dados da página para exibir em `pagina.html?slug=<slug>`.
+- Acesse `admin.html`, informe a chave `ADMIN_KEY` e liste/regenere páginas de usuários via `/admin/users` e `/admin/users/:id/page`.
 
 ### Publicar a API
 - Sugerido para ambiente de teste: Render, Railway, Fly.io ou VPS. Suba o conteúdo da pasta `api`, configure `PORT`, `JWT_SECRET` e `DB_PATH` (ou string de conexão para outro banco), instale dependências e exponha a rota.

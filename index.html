@@ -189,6 +189,7 @@
         <div class="session-row">
           <button type="button" id="logout-btn" class="btn ghost" disabled>Encerrar sessão</button>
           <a id="painel-btn" class="btn primary" href="area-aluno.html" aria-disabled="true">Ir para o painel</a>
+          <a id="pagina-btn" class="btn ghost" href="#" aria-disabled="true">Minha página</a>
           <span id="session-status" class="session-status">Nenhum usuário autenticado.</span>
         </div>
         <p class="form-note">Prefere uma página só de cadastro? Use <a class="inline-link" href="cadastro.html">cadastro.html</a> para criar seu acesso.</p>
@@ -406,6 +407,7 @@
     const sessionStatus = document.querySelector('#session-status');
     const logoutBtn = document.querySelector('#logout-btn');
     const painelBtn = document.querySelector('#painel-btn');
+    const paginaBtn = document.querySelector('#pagina-btn');
 
     const SUPABASE_URL = window.SUPABASE_URL || 'https://atgotspourufrqqnhirl.supabase.co';
     const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0Z290c3BvdXJ1ZnJxcW5oaXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzUzNjksImV4cCI6MjA4MDYxMTM2OX0.IJSEzMehhCT_yLxfzhFC6mrTbzWwo2svbgs3P1sHPHs';
@@ -415,18 +417,46 @@
 
     let authMode = 'login';
     let authToken = localStorage.getItem('authToken');
+    let userPageSlug = localStorage.getItem('authPage');
 
-    const updateSessionStatus = user => {
+    const slugify = text =>
+      text
+        ?.normalize('NFD')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase();
+
+    const updateSessionStatus = (user, page) => {
+      if (page?.slug) {
+        userPageSlug = page.slug;
+        localStorage.setItem('authPage', page.slug);
+      }
+
       if (user) {
         sessionStatus.textContent = `Sessão ativa: ${user.name} (${user.email})`;
         logoutBtn.removeAttribute('disabled');
         painelBtn?.removeAttribute('aria-disabled');
         painelBtn?.classList.remove('disabled');
+        if (paginaBtn) {
+          const slug = page?.slug || userPageSlug;
+          if (slug) {
+            paginaBtn.href = `pagina.html?slug=${encodeURIComponent(slug)}`;
+            paginaBtn.removeAttribute('aria-disabled');
+            paginaBtn.classList.remove('disabled');
+          }
+        }
       } else {
         sessionStatus.textContent = 'Nenhum usuário autenticado.';
         logoutBtn.setAttribute('disabled', 'true');
         painelBtn?.setAttribute('aria-disabled', 'true');
         painelBtn?.classList.add('disabled');
+        if (paginaBtn) {
+          paginaBtn.setAttribute('aria-disabled', 'true');
+          paginaBtn.classList.add('disabled');
+          paginaBtn.href = '#';
+        }
       }
     };
 
@@ -474,6 +504,23 @@
       };
     }
 
+    function derivePage(user) {
+      if (!user) return null;
+      const base = slugify(user.name || user.email?.split('@')[0] || 'usuario') || 'usuario';
+      const suffix = user.id ? user.id.toString().slice(0, 6) : Date.now();
+      const slug = `${base}-${suffix}`;
+      return { slug, title: 'Página personalizada do aluno' };
+    }
+
+    function persistLocalSession({ user, token, page }) {
+      if (token) localStorage.setItem('authToken', token);
+      const finalPage = page || user?.page || (user?.email ? derivePage(user) : null);
+      if (finalPage?.slug) localStorage.setItem('authPage', finalPage.slug);
+      if (user) localStorage.setItem('authUser', JSON.stringify({ ...user, page: finalPage }));
+      updateSessionStatus(user, finalPage);
+      return finalPage;
+    }
+
     async function registerWithProvider({ name, email, password }) {
       if (supabase) {
         const { data, error } = await supabase.auth.signUp({
@@ -484,9 +531,8 @@
         if (error) throw new Error(error.message || 'Erro ao registrar no Supabase.');
         const user = mapSupabaseUser(data.user);
         authToken = data.session?.access_token || null;
-        if (authToken) localStorage.setItem('authToken', authToken);
-        localStorage.setItem('authUser', JSON.stringify(user));
-        return { user, token: authToken };
+        const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
+        return { user, token: authToken, page };
       }
       return apiRequest('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
     }
@@ -497,9 +543,8 @@
         if (error) throw new Error(error.message || 'Erro ao fazer login no Supabase.');
         const user = mapSupabaseUser(data.user);
         authToken = data.session?.access_token || null;
-        if (authToken) localStorage.setItem('authToken', authToken);
-        localStorage.setItem('authUser', JSON.stringify(user));
-        return { user, token: authToken };
+        const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
+        return { user, token: authToken, page };
       }
       return apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     }
@@ -511,9 +556,7 @@
           if (!session) throw new Error('Nenhuma sessão ativa.');
           const user = mapSupabaseUser(session.user) || mapSupabaseUser(await supabaseUser());
           authToken = session.access_token;
-          if (authToken) localStorage.setItem('authToken', authToken);
-          localStorage.setItem('authUser', JSON.stringify(user));
-          updateSessionStatus(user);
+          const page = persistLocalSession({ user, token: authToken, page: derivePage(user) });
           loginFeedback.textContent = 'Sessão validada no Supabase.';
           loginFeedback.className = 'form-feedback success';
           showStudentArea(user.name);
@@ -526,8 +569,8 @@
           return;
         }
 
-        const { user } = await apiRequest('/auth/me');
-        updateSessionStatus(user);
+        const { user, page } = await apiRequest('/auth/me');
+        persistLocalSession({ user, token: authToken, page });
         loginFeedback.textContent = 'Sessão válida.';
         loginFeedback.className = 'form-feedback success';
         showStudentArea(user.name);
@@ -535,6 +578,7 @@
         console.error(err);
         authToken = null;
         localStorage.removeItem('authToken');
+        localStorage.removeItem('authPage');
         updateSessionStatus(null);
         if (studentArea) studentArea.classList.add('hidden');
       }
@@ -574,6 +618,7 @@
         authToken = null;
         localStorage.removeItem('authToken');
         localStorage.removeItem('authUser');
+        localStorage.removeItem('authPage');
         updateSessionStatus(null);
         loginFeedback.textContent = 'Sessão encerrada.';
         loginFeedback.className = 'form-feedback';
@@ -607,8 +652,7 @@
             : await loginWithProvider({ email, password });
 
           authToken = payload.token;
-          if (authToken) localStorage.setItem('authToken', authToken);
-          updateSessionStatus(payload.user);
+          persistLocalSession({ user: payload.user, token: payload.token, page: payload.page });
           loginFeedback.textContent = authMode === 'register'
             ? 'Conta criada e sessão iniciada.'
             : 'Login validado com sucesso.';

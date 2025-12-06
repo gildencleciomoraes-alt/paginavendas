@@ -12,6 +12,7 @@ import path from 'path';
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const DB_PATH = process.env.DB_PATH || path.join('api', 'data', 'auth.db');
+const ADMIN_KEY = process.env.ADMIN_KEY || 'admin-key-dev';
 
 const app = express();
 app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] }));
@@ -33,6 +34,15 @@ async function ensureDatabase() {
       password_hash TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS user_pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT DEFAULT 'Página do aluno',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
   `);
   return db;
 }
@@ -43,6 +53,35 @@ function createToken(user) {
 
 async function getUserByEmail(db, email) {
   return db.get('SELECT id, name, email, password_hash FROM users WHERE email = ?', email);
+}
+
+async function getUserPage(db, userId) {
+  return db.get('SELECT slug, title, created_at FROM user_pages WHERE user_id = ?', userId);
+}
+
+function slugify(text) {
+  return text
+    .normalize('NFD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .toLowerCase();
+}
+
+async function ensureUserPage(db, user) {
+  const existing = await getUserPage(db, user.id);
+  if (existing) return existing;
+
+  const base = slugify(user.name || user.email.split('@')[0] || 'usuario') || 'usuario';
+  const slug = `${base}-${user.id}`;
+  await db.run(
+    'INSERT INTO user_pages (user_id, slug, title) VALUES (?, ?, ?)',
+    user.id,
+    slug,
+    'Página personalizada do aluno'
+  );
+  return { slug, title: 'Página personalizada do aluno' };
 }
 
 function validateEmail(email) {
@@ -81,8 +120,9 @@ app.post('/auth/register', async (req, res) => {
     );
 
     const user = { id: statement.lastID, name: name.trim(), email: email.trim().toLowerCase() };
+    const page = await ensureUserPage(db, user);
     const token = createToken(user);
-    res.status(201).json({ token, user });
+    res.status(201).json({ token, user: { ...user, page }, page });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro interno ao registrar usuário.' });
@@ -102,8 +142,9 @@ app.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
+    const page = await ensureUserPage(db, user);
     const token = createToken(user);
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, page }, page });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro interno ao fazer login.' });
@@ -126,11 +167,72 @@ app.get('/auth/me', async (req, res) => {
       return res.status(401).json({ error: 'Usuário não encontrado.' });
     }
 
-    res.json({ user });
+    const page = await getUserPage(db, user.id);
+    res.json({ user: { ...user, page }, page });
   } catch (error) {
     console.error(error);
     const status = error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' ? 401 : 500;
     res.status(status).json({ error: status === 401 ? 'Token inválido ou expirado.' : 'Erro interno ao validar token.' });
+  }
+});
+
+app.get('/pages/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const db = await ensureDatabase();
+    const page = await db.get(
+      `SELECT p.slug, p.title, p.created_at, u.name, u.email
+       FROM user_pages p
+       JOIN users u ON u.id = p.user_id
+       WHERE p.slug = ?`,
+      slug
+    );
+    if (!page) return res.status(404).json({ error: 'Página não encontrada.' });
+    res.json({ page });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar página.' });
+  }
+});
+
+app.get('/admin/users', async (req, res) => {
+  try {
+    const providedKey = req.headers['x-admin-key'];
+    if (!providedKey || providedKey !== ADMIN_KEY) {
+      return res.status(401).json({ error: 'Chave de administrador inválida.' });
+    }
+
+    const db = await ensureDatabase();
+    const users = await db.all(
+      `SELECT u.id, u.name, u.email, u.created_at, p.slug, p.title, p.created_at AS page_created
+       FROM users u
+       LEFT JOIN user_pages p ON p.user_id = u.id
+       ORDER BY u.created_at DESC`
+    );
+    res.json({ users });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao listar usuários.' });
+  }
+});
+
+app.post('/admin/users/:id/page', async (req, res) => {
+  try {
+    const providedKey = req.headers['x-admin-key'];
+    if (!providedKey || providedKey !== ADMIN_KEY) {
+      return res.status(401).json({ error: 'Chave de administrador inválida.' });
+    }
+
+    const { id } = req.params;
+    const db = await ensureDatabase();
+    const user = await db.get('SELECT id, name, email FROM users WHERE id = ?', id);
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    const page = await ensureUserPage(db, user);
+    res.status(201).json({ page, user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao criar página do usuário.' });
   }
 });
 
