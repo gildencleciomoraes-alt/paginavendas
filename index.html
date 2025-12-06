@@ -96,6 +96,81 @@
         </article>
       </div>
     </section>
+    <section id="admin" class="section login">
+      <div class="section-header">
+        <p class="tag">Painel administrativo</p>
+        <h2>Gerencie cadastros e áreas de acesso</h2>
+        <p class="description">Use o login de administrador para editar, mover ou remover alunos cadastrados.</p>
+      </div>
+      <div class="admin-grid">
+        <div class="form-card">
+          <form id="admin-login-form" class="form-grid">
+            <div class="form-group">
+              <label for="admin-email">E-mail do admin</label>
+              <input type="email" id="admin-email" name="email" placeholder="admin@mentoriatcc.com" required />
+            </div>
+            <div class="form-group">
+              <label for="admin-senha">Senha do admin</label>
+              <input type="password" id="admin-senha" name="senha" placeholder="••••••••" required />
+            </div>
+            <button type="submit" class="btn primary full" data-loading="Entrando...">Entrar no painel</button>
+            <p id="admin-feedback" class="form-feedback">Apenas administradores conseguem acessar esta área.</p>
+          </form>
+          <p class="form-note">Login padrão: admin@mentoriatcc.com / admin123 (alterável no próprio painel).</p>
+        </div>
+        <div id="admin-panel" class="form-card hidden" aria-live="polite">
+          <div class="admin-panel-header">
+            <div>
+              <p class="tag">Banco local</p>
+              <h3 id="admin-summary">0 usuários cadastrados</h3>
+              <p class="description" id="admin-subtitle">Os dados ficam salvos no navegador para logins futuros.</p>
+            </div>
+            <div class="admin-actions">
+              <button id="admin-refresh" type="button" class="btn ghost">Recarregar base</button>
+              <button id="admin-logout" type="button" class="btn ghost">Sair do painel</button>
+            </div>
+          </div>
+          <div class="admin-table" id="admin-users-container"></div>
+          <form id="admin-edit-form" class="admin-edit-grid">
+            <h4>Editar cadastro selecionado</h4>
+            <p class="form-feedback" id="admin-edit-feedback">Selecione um usuário para ajustar os dados.</p>
+            <label class="form-group">
+              <span>Nome</span>
+              <input type="text" id="admin-edit-nome" name="nome" placeholder="Nome do aluno" required />
+            </label>
+            <label class="form-group">
+              <span>E-mail</span>
+              <input type="email" id="admin-edit-email" name="email" readonly />
+            </label>
+            <label class="form-group">
+              <span>Área</span>
+              <select id="admin-edit-area" name="area">
+                <option value="Aluno">Aluno</option>
+                <option value="Mentorado">Mentorado</option>
+                <option value="VIP">VIP</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span>Plano</span>
+              <input type="text" id="admin-edit-plano" name="plano" placeholder="Plano contratado" />
+            </label>
+            <label class="form-group">
+              <span>Status</span>
+              <input type="text" id="admin-edit-status" name="status" placeholder="Ativo, Aguardando, Pago..." />
+            </label>
+            <label class="form-group">
+              <span>Próxima sessão</span>
+              <input type="text" id="admin-edit-sessao" name="proximaSessao" placeholder="Data e horário" />
+            </label>
+            <div class="admin-actions">
+              <button type="submit" class="btn primary">Salvar alterações</button>
+              <button id="admin-clear-form" type="button" class="btn ghost">Limpar seleção</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
 
     <section class="section highlight">
       <div class="section-header">
@@ -255,6 +330,7 @@
           </div>
           <ul>
             <li><strong>E-mail:</strong> <span id="usuario-email">—</span></li>
+            <li><strong>Área:</strong> <span id="usuario-area">—</span></li>
             <li><strong>Plano:</strong> <span id="usuario-plano">—</span></li>
             <li><strong>Status de pagamento:</strong> <span id="usuario-status" class="status status-warning">Aguardando</span></li>
           </ul>
@@ -430,6 +506,7 @@
     const dashboardFeedback = document.querySelector('#dashboard-feedback');
     const usuarioNome = document.querySelector('#usuario-nome');
     const usuarioEmail = document.querySelector('#usuario-email');
+    const usuarioArea = document.querySelector('#usuario-area');
     const usuarioPlano = document.querySelector('#usuario-plano');
     const usuarioStatus = document.querySelector('#usuario-status');
     function resolveApiBase() {
@@ -452,8 +529,24 @@
     const profileKey = 'mentoria-user-profile';
 
     const demoAccounts = [
-      { email: 'aluno@mentoriatcc.com', senha: 'mentoria123', nome: 'Aluno Mentoria' },
-      { email: 'teste@mentoriatcc.com', senha: 'tcc2024', nome: 'Visitante Demonstrativo' }
+      {
+        email: 'aluno@mentoriatcc.com',
+        senha: 'mentoria123',
+        nome: 'Aluno Mentoria',
+        area: 'Aluno',
+        plano: 'Plano demonstrativo',
+        status: 'Ativo',
+        proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
+      },
+      {
+        email: 'teste@mentoriatcc.com',
+        senha: 'tcc2024',
+        nome: 'Visitante Demonstrativo',
+        area: 'Mentorado',
+        plano: 'Mentoria Essencial',
+        status: 'Aguardando',
+        proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
+      }
     ];
 
     function saveUserProfile(profile) {
@@ -493,6 +586,7 @@
       if (!profile) return;
       if (usuarioNome) usuarioNome.textContent = profile.nome || profile.name || 'Aluno';
       if (usuarioEmail) usuarioEmail.textContent = profile.email || '—';
+      if (usuarioArea) usuarioArea.textContent = profile.area || 'Aluno';
       if (usuarioPlano) usuarioPlano.textContent = profile.plano || profile.plan || 'Em definição';
       if (usuarioStatus) {
         usuarioStatus.textContent = profile.statusPagamento || profile.status || 'Ativo';
@@ -515,33 +609,96 @@
       }
     }
 
-    const mockStorageKey = 'mentoria-mock-users';
-    const mockCurrentKey = 'mentoria-mock-current';
+    const userStorageKey = 'mentoria-users-db';
+    const currentUserKey = 'mentoria-current-email';
 
-    function getMockUsers() {
+    const adminSeed = {
+      nome: 'Administrador',
+      email: 'admin@mentoriatcc.com',
+      senha: 'admin123',
+      area: 'Admin',
+      plano: 'Gestão',
+      status: 'Ativo',
+      proximaSessao: '—',
+    };
+
+    function getStoredUsers() {
       try {
-        const raw = localStorage.getItem(mockStorageKey);
+        const raw = localStorage.getItem(userStorageKey);
         return raw ? JSON.parse(raw) : [];
       } catch (error) {
         return [];
       }
     }
 
-    function setMockUsers(users) {
-      localStorage.setItem(mockStorageKey, JSON.stringify(users));
+    function saveUsers(users) {
+      localStorage.setItem(userStorageKey, JSON.stringify(users));
     }
 
-    function setMockCurrentUser(email) {
-      localStorage.setItem(mockCurrentKey, email);
+    function seedDatabase() {
+      const users = getStoredUsers();
+      if (!users.length) {
+        const seededUsers = [
+          adminSeed,
+          {
+            nome: 'Aluno Mentoria',
+            email: 'aluno@mentoriatcc.com',
+            senha: 'mentoria123',
+            area: 'Aluno',
+            plano: 'Plano demonstrativo',
+            status: 'Ativo',
+            proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
+          },
+          {
+            nome: 'Visitante Demonstrativo',
+            email: 'teste@mentoriatcc.com',
+            senha: 'tcc2024',
+            area: 'Mentorado',
+            plano: 'Mentoria Essencial',
+            status: 'Aguardando',
+            proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
+          },
+        ];
+        saveUsers(seededUsers);
+      }
     }
 
-    function getMockCurrentUser() {
-      return localStorage.getItem(mockCurrentKey);
+    function setCurrentUser(email) {
+      localStorage.setItem(currentUserKey, email);
+    }
+
+    function getCurrentUserEmail() {
+      return localStorage.getItem(currentUserKey);
+    }
+
+    function findUserByEmail(email) {
+      const users = getStoredUsers();
+      return users.find(user => user.email.toLowerCase() === email.toLowerCase());
+    }
+
+    function upsertUser(updatedUser) {
+      const users = getStoredUsers();
+      const index = users.findIndex(user => user.email.toLowerCase() === updatedUser.email.toLowerCase());
+      if (index >= 0) {
+        users[index] = { ...users[index], ...updatedUser };
+      } else {
+        users.push(updatedUser);
+      }
+      saveUsers(users);
+      return users[index >= 0 ? index : users.length - 1];
+    }
+
+    function deleteUser(email) {
+      const users = getStoredUsers();
+      const filtered = users.filter(user => user.email.toLowerCase() !== email.toLowerCase());
+      saveUsers(filtered);
+      return filtered;
     }
 
     function mockApiRequest(path, options = {}) {
+      seedDatabase();
       const body = parseJsonBody(options);
-      const users = getMockUsers();
+      const users = getStoredUsers();
       const lowerPath = path.toLowerCase();
 
       if (lowerPath === '/api/auth/register') {
@@ -558,14 +715,14 @@
           nome: body.nome,
           email: body.email,
           senha: body.senha,
+          area: 'Aluno',
           plano: 'Mentoria Essencial',
           status: 'Ativo',
           proximaSessao: 'Próxima sessão em 3 dias, às 19h.',
         };
 
-        users.push(newUser);
-        setMockUsers(users);
-        setMockCurrentUser(newUser.email);
+        upsertUser(newUser);
+        setCurrentUser(newUser.email);
         localStorage.setItem(tokenKey, 'mock-token');
 
         return Promise.resolve({ token: 'mock-token', user: newUser });
@@ -578,10 +735,10 @@
 
         const foundUser = users.find(user => user.email.toLowerCase() === body.email.toLowerCase());
         if (!foundUser || foundUser.senha !== body.password) {
-          return Promise.reject(new Error('Credenciais não encontradas no modo demonstrativo.'));
+          return Promise.reject(new Error('Credenciais não encontradas no banco local.'));
         }
 
-        setMockCurrentUser(foundUser.email);
+        setCurrentUser(foundUser.email);
         localStorage.setItem(tokenKey, 'mock-token');
 
         return Promise.resolve({ token: 'mock-token', user: foundUser });
@@ -593,7 +750,7 @@
           return Promise.reject(new Error('Não autorizado. Faça login ou cadastre-se.'));
         }
 
-        const currentEmail = getMockCurrentUser();
+        const currentEmail = getCurrentUserEmail();
         const profile = users.find(user => user.email === currentEmail);
 
         if (!profile) {
@@ -603,7 +760,7 @@
         return Promise.resolve(profile);
       }
 
-      return Promise.reject(new Error('Endpoint não suportado no modo demonstrativo. Configure a API real para continuar.'));
+      return Promise.reject(new Error('Endpoint não suportado no modo local. Configure a API real para continuar.'));
     }
     async function apiRequest(path, options = {}) {
       if (useMockApi) {
@@ -654,6 +811,9 @@
 
       if (profile) {
         saveUserProfile(profile);
+        if (profile.email) {
+          setCurrentUser(profile.email);
+        }
       }
 
       updateDashboardFromProfile(profile);
@@ -682,6 +842,167 @@
       }
     }
 
+    seedDatabase();
+
+    const adminLoginForm = document.querySelector('#admin-login-form');
+    const adminFeedback = document.querySelector('#admin-feedback');
+    const adminPanel = document.querySelector('#admin-panel');
+    const adminUsersContainer = document.querySelector('#admin-users-container');
+    const adminSummary = document.querySelector('#admin-summary');
+    const adminSubtitle = document.querySelector('#admin-subtitle');
+    const adminEditForm = document.querySelector('#admin-edit-form');
+    const adminEditFeedback = document.querySelector('#admin-edit-feedback');
+    const adminEditNome = document.querySelector('#admin-edit-nome');
+    const adminEditEmail = document.querySelector('#admin-edit-email');
+    const adminEditArea = document.querySelector('#admin-edit-area');
+    const adminEditPlano = document.querySelector('#admin-edit-plano');
+    const adminEditStatus = document.querySelector('#admin-edit-status');
+    const adminEditSessao = document.querySelector('#admin-edit-sessao');
+    const adminClearForm = document.querySelector('#admin-clear-form');
+    const adminLogout = document.querySelector('#admin-logout');
+    const adminRefresh = document.querySelector('#admin-refresh');
+
+    function renderAdminTable() {
+      if (!adminUsersContainer) return;
+      const users = getStoredUsers();
+
+      if (!users.length) {
+        adminUsersContainer.innerHTML = '<p class="description">Nenhum cadastro encontrado.</p>';
+        return;
+      }
+
+      adminSummary.textContent = `${users.length} usuários cadastrados`;
+      adminSubtitle.textContent = 'Clique em editar para mudar área, plano ou status.';
+
+      adminUsersContainer.innerHTML = users
+        .map(user => `
+          <div class="admin-row" data-email="${user.email}">
+            <div>
+              <strong>${user.nome}</strong>
+              <p class="muted">${user.email} • Área: ${user.area || 'Aluno'} • Plano: ${user.plano || '—'}</p>
+            </div>
+            <div class="admin-row-actions">
+              <button type="button" class="btn ghost admin-edit-btn" data-email="${user.email}">Editar</button>
+              <button type="button" class="btn ghost danger admin-delete-btn" data-email="${user.email}">Excluir</button>
+            </div>
+          </div>
+        `)
+        .join('');
+
+      adminUsersContainer.querySelectorAll('.admin-edit-btn').forEach(button => {
+        button.addEventListener('click', () => selectUserForEdit(button.dataset.email));
+      });
+
+      adminUsersContainer.querySelectorAll('.admin-delete-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const email = button.dataset.email;
+          if (confirm(`Excluir cadastro de ${email}?`)) {
+            deleteUser(email);
+            renderAdminTable();
+            adminEditFeedback.textContent = 'Cadastro removido. Atualize ou selecione outro usuário.';
+            adminEditFeedback.className = 'form-feedback success';
+          }
+        });
+      });
+    }
+
+    function selectUserForEdit(email) {
+      const user = findUserByEmail(email);
+      if (!user || !adminEditForm) return;
+      adminEditForm.dataset.selectedEmail = email;
+      adminEditNome.value = user.nome || '';
+      adminEditEmail.value = user.email || '';
+      adminEditArea.value = user.area || 'Aluno';
+      adminEditPlano.value = user.plano || '';
+      adminEditStatus.value = user.status || user.statusPagamento || '';
+      adminEditSessao.value = user.proximaSessao || '';
+      adminEditFeedback.textContent = `Editando ${user.nome || user.email}.`;
+      adminEditFeedback.className = 'form-feedback success';
+    }
+
+    function clearAdminForm() {
+      if (!adminEditForm) return;
+      adminEditForm.reset();
+      delete adminEditForm.dataset.selectedEmail;
+      adminEditFeedback.textContent = 'Selecione um usuário para ajustar os dados.';
+      adminEditFeedback.className = 'form-feedback';
+    }
+
+    function openAdminPanel() {
+      adminPanel?.classList.remove('hidden');
+      renderAdminTable();
+    }
+
+    function closeAdminPanel() {
+      adminPanel?.classList.add('hidden');
+      clearAdminForm();
+    }
+
+    if (adminLoginForm && adminFeedback) {
+      adminLoginForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const email = adminLoginForm.email.value.trim();
+        const senha = adminLoginForm.senha.value.trim();
+
+        if (!email || !senha) {
+          adminFeedback.textContent = 'Informe e-mail e senha do administrador.';
+          adminFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        const adminUser = findUserByEmail(email);
+        if (!adminUser || adminUser.senha !== senha || (adminUser.area || '').toLowerCase() !== 'admin') {
+          adminFeedback.textContent = 'Credenciais de admin inválidas.';
+          adminFeedback.className = 'form-feedback error';
+          return;
+        }
+
+        adminFeedback.textContent = 'Acesso liberado! Carregando painel...';
+        adminFeedback.className = 'form-feedback success';
+        openAdminPanel();
+      });
+    }
+
+    adminLogout?.addEventListener('click', () => {
+      adminFeedback.textContent = 'Você saiu do painel.';
+      adminFeedback.className = 'form-feedback';
+      closeAdminPanel();
+    });
+
+    adminRefresh?.addEventListener('click', () => {
+      renderAdminTable();
+      adminEditFeedback.textContent = 'Base recarregada com sucesso.';
+      adminEditFeedback.className = 'form-feedback success';
+    });
+
+    adminClearForm?.addEventListener('click', () => clearAdminForm());
+
+    adminEditForm?.addEventListener('submit', event => {
+      event.preventDefault();
+      const selected = adminEditForm.dataset.selectedEmail;
+      if (!selected) {
+        adminEditFeedback.textContent = 'Escolha um usuário para editar.';
+        adminEditFeedback.className = 'form-feedback error';
+        return;
+      }
+
+      const existing = findUserByEmail(selected);
+      const updated = {
+        ...existing,
+        nome: adminEditNome.value.trim(),
+        email: adminEditEmail.value.trim(),
+        area: adminEditArea.value,
+        plano: adminEditPlano.value.trim(),
+        status: adminEditStatus.value.trim(),
+        proximaSessao: adminEditSessao.value.trim(),
+      };
+
+      upsertUser(updated);
+      adminEditFeedback.textContent = 'Cadastro atualizado e salvo no banco local.';
+      adminEditFeedback.className = 'form-feedback success';
+      renderAdminTable();
+    });
+
     if (loginForm && loginFeedback) {
       loginForm.addEventListener('submit', event => {
         event.preventDefault();
@@ -698,13 +1019,9 @@
         const match = demoAccounts.find(account => account.email === email && account.senha === password);
 
         if (match) {
-          const demoProfile = {
-            nome: match.nome,
-            email: match.email,
-            plano: 'Plano demonstrativo',
-            status: 'Ativo',
-            proximaSessao: 'Sessão demonstrativa em 12/09 às 19h',
-          };
+          upsertUser(match);
+          setCurrentUser(match.email);
+          const demoProfile = { ...match };
           handleAuthSuccess({ user: demoProfile, token: 'demo-token' }, loginFeedback, 'Login validado! Redirecionando para sua área restrita.');
           return;
         }
